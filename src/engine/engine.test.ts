@@ -305,6 +305,20 @@ describe("default plant simulation invariants", () => {
     }
   });
 
+  it("splits good units by hour and records a state timeline for line 1", () => {
+    expect(r.goodByHour.length).toBe(12);
+    expect(r.goodByHour.reduce((a, b) => a + b, 0)).toBe(r.unitsGood);
+    expect(r.stateTimeline.binSeconds).toBe(60);
+    for (const id of IDS) {
+      const row = r.stateTimeline.rows[id];
+      expect(row.length).toBe(720);
+      // Line 1 has 5 downtime events per station: 4 of 15 minutes, 1 of 12.
+      const downMinutes = row.filter((s) => s === "down").length;
+      expect(Math.abs(downMinutes - 72)).toBeLessThanOrEqual(5);
+    }
+    expect(r.stateTimeline.rows.S6.includes("blocked")).toBe(false);
+  });
+
   it("is deterministic for seed 1", () => {
     const again = simulateShift(SEED_PLANT);
     expect(again.downtimeEvents).toEqual(r.downtimeEvents);

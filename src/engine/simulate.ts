@@ -8,9 +8,11 @@ import type {
   CrewId,
   DowntimeEvent,
   DowntimeReason,
+  MachineState,
   OeeParts,
   Plant,
   SimResult,
+  StateTimeline,
   StationId,
   StationStats,
 } from "../types";
@@ -18,6 +20,28 @@ import { DOWNTIME_REASONS } from "../types";
 import { assignReasons, buildLineEvents } from "./downtime";
 import { computeClosedForm, findConstraintIndex, scheduledHoursFor } from "./formulas";
 import { lineStream } from "./rng";
+
+const TIMELINE_BIN_SECONDS = 60;
+const DOWN = 0;
+const BLOCKED = 1;
+const BUSY = 2;
+const IDLE = 3;
+const STATE_NAMES: MachineState[] = ["down", "blocked", "busy", "idle"];
+
+// The state that filled most of a bin. Ties go to the earlier, more severe
+// state (down, then blocked, then busy, then idle).
+function dominantState(counts: Uint16Array, bin: number): MachineState {
+  let best = IDLE;
+  let bestCount = -1;
+  for (let state = 0; state < 4; state++) {
+    const c = counts[bin * 4 + state];
+    if (c > bestCount) {
+      bestCount = c;
+      best = state;
+    }
+  }
+  return STATE_NAMES[best];
+}
 
 export type ScriptedYield = (stationId: StationId, completionIndex: number) => boolean;
 
@@ -70,6 +94,15 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
   let unitsScrap = 0;
   let wipSum = 0;
   let rawEvents: DowntimeEvent[] = [];
+
+  // Display data. Good units per scheduled hour (all lines), and a per-minute
+  // state record for line 1 only, so the dashboard can draw a state timeline.
+  const goodByHour: number[] = new Array(Math.ceil(scheduledSeconds / 3600)).fill(0);
+  const bins = Math.ceil(scheduledSeconds / TIMELINE_BIN_SECONDS);
+  const stateCounts = stations.map(() => new Uint16Array(bins * 4));
+  const record = (line: number, i: number, t: number, state: number) => {
+    if (line === 0) stateCounts[i][Math.floor(t / TIMELINE_BIN_SECONDS) * 4 + state]++;
+  };
 
   for (let line = 0; line < P; line++) {
     // One stream per line: downtime placement first, then yield draws.
@@ -144,10 +177,12 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
           if (down[i][u][t] === 1) {
             // Down: no processing, no transfer. A unit on the machine waits.
             tally.downtimeSeconds++;
+            record(line, i, t, DOWN);
             continue;
           }
           if (m.hasUnit && !m.finished) {
             tally.busySeconds++;
+            record(line, i, t, BUSY);
             m.remaining -= 1;
             if (m.remaining <= 0) {
               completions[i]++;
@@ -166,6 +201,7 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
                 tally.outflowGood++;
                 if (i === lastIndex) {
                   unitsGood++;
+                  goodByHour[Math.floor(t / 3600)]++;
                   lineLeft++;
                   m.hasUnit = false;
                 } else if (!tryTransfer(i, m, t)) {
@@ -174,10 +210,16 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
               }
             }
           } else if (m.finished) {
-            if (!tryTransfer(i, m, t)) tally.blockedSeconds++;
-            else tally.idleSeconds++;
+            if (!tryTransfer(i, m, t)) {
+              tally.blockedSeconds++;
+              record(line, i, t, BLOCKED);
+            } else {
+              tally.idleSeconds++;
+              record(line, i, t, IDLE);
+            }
           } else {
             tally.idleSeconds++;
+            record(line, i, t, IDLE);
           }
         }
       }
@@ -271,5 +313,16 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
     stationStats,
     downtimeEvents,
     downtimeByReason,
+    goodByHour,
+    stateTimeline: {
+      lineId: 0,
+      binSeconds: TIMELINE_BIN_SECONDS,
+      rows: Object.fromEntries(
+        stations.map((s, i) => [
+          s.id,
+          Array.from({ length: bins }, (_, b) => dominantState(stateCounts[i], b)),
+        ]),
+      ) as StateTimeline["rows"],
+    },
   };
 }

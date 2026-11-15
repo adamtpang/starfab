@@ -15,6 +15,10 @@ Scaffolded on 2026-11-14 from the official Vite `react-ts` template (MIT), via `
 - No secrets in git. Do not commit `.env*` or `.vercel/`.
 - Do not push to `main` and do not deploy. Adam deploys.
 
+## Design language
+
+The look is "Vacuum drafting" with the Weld arc palette, chosen by Adam on 2026-11-14. Rules, tokens and the options that were rejected are in `docs/design-language.md`. Read it before changing any style. No component library and no chart library. Fonts come from the `@fontsource/exo-2`, `@fontsource/ibm-plex-mono` and `@fontsource/ibm-plex-sans-condensed` npm packages (OFL-1.1, https://fontsource.org).
+
 ## Layout
 
 - `data/plant.seed.json`: seed plant, with a source on every number

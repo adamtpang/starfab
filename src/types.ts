@@ -136,6 +136,18 @@ export interface SimResult {
     DowntimeReason,
     { seconds: number; events: number; share: number }
   >;
+  // Display data, beyond the tech-spec shape.
+  goodByHour: number[]; // good units at pack-out per scheduled hour, all lines
+  stateTimeline: StateTimeline;
+}
+
+export type MachineState = "down" | "blocked" | "busy" | "idle";
+
+// Dominant state per time bin for each station on one line.
+export interface StateTimeline {
+  lineId: number;
+  binSeconds: number;
+  rows: Record<StationId, MachineState[]>;
 }
 
 export const DOWNTIME_REASONS: DowntimeReason[] = [
