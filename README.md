@@ -8,7 +8,27 @@ Live placeholder: [https://starfab.vercel.app](https://starfab.vercel.app)
 
 ## What this repo is today
 
-This first commit holds a dark placeholder page and a written spec. The simulator itself is not built yet. The MVP in [docs/roadmap.md](docs/roadmap.md) is scoped so it can be built in about three hours.
+A static Vite + React + TypeScript app. It runs one simulated shift of a six-station, four-line teaching plant in the browser, with a deterministic, seeded, discrete-time engine (1 second ticks, no buffers, scrap without rework) and an analytical capacity calculator beside it as a cross-reference. The dark dashboard shows shift yield, OEE, WIP, station utilization with the bottleneck highlighted, a downtime Pareto, and what-if levers. Seed numbers live in [data/plant.seed.json](data/plant.seed.json), and every one is sourced or labeled `ASSUMPTION`.
+
+## Run it
+
+```bash
+npm install
+```
+
+```bash
+npm run dev
+```
+
+```bash
+npm test
+```
+
+```bash
+npm run build
+```
+
+There is no backend, no login, and no network call at runtime. `npm run build` writes a static site to `dist/`.
 
 ## Specs
 
@@ -17,6 +37,7 @@ This first commit holds a dark placeholder page and a written spec. The simulato
 - [docs/features.md](docs/features.md): MVP versus later work
 - [docs/data-sources.md](docs/data-sources.md): every public source, with a URL and date
 - [docs/roadmap.md](docs/roadmap.md): the three-hour MVP plan, then later steps
+- [docs/tech-spec.md](docs/tech-spec.md): the engine and UI contract, fixtures F1 to F3, and assumptions A15 to A20
 
 ## Rules
 
