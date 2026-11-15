@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { fmtInt } from "../lib/format";
-import { SEED_PLANT } from "../plant";
 import { RAMPS, runRamp, type RampResult, type RampVariable } from "../ramp";
 import type { CrewId, Plant, WhatIfLevers } from "../types";
 import { Detail } from "./Detail";
@@ -31,10 +30,12 @@ function currentValue(variable: RampVariable, plant: Plant, levers: WhatIfLevers
 // current settings, and mark where the line stops holding takt.
 export function RampTest({
   plant,
+  seed,
   levers,
   crew,
 }: {
   plant: Plant;
+  seed: Plant;
   levers: WhatIfLevers;
   crew: CrewId;
 }) {
@@ -45,10 +46,10 @@ export function RampTest({
   // Each ramp is about ten full simulations, so wait for the levers to
   // settle before running it.
   useEffect(() => {
-    const timer = setTimeout(() => setResult(runRamp(SEED_PLANT, levers, variable, crew)), 220);
+    const timer = setTimeout(() => setResult(runRamp(seed, levers, variable, crew)), 220);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, variable, crew]);
+  }, [key, variable, crew, seed]);
 
   const spec = RAMPS[variable];
   const ready = result !== null && result.variable === variable;

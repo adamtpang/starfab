@@ -1,4 +1,5 @@
 import { fmtInt, fmtMinutes, fmtNum, fmtPct } from "../lib/format";
+import { stationSourceId } from "../plant";
 import type { Plant, SimResult } from "../types";
 import { Detail } from "./Detail";
 import { Assumption } from "./Tag";
@@ -34,13 +35,16 @@ export function StationTable({ plant, sim }: { plant: Plant; sim: SimResult }) {
             <tr>
               <th scope="col">Station</th>
               <th scope="col" className="num">
-                Cycle <Assumption id="A9" />
+                Cycle <Assumption id={stationSourceId(plant, "cycleTimeSeconds", "A9")} />
               </th>
               <th scope="col" className="num">
-                Yield <Assumption id="A11" />
+                Yield <Assumption id={stationSourceId(plant, "firstPassYield", "A11")} />
               </th>
               <th scope="col" className="num">
-                Avail. <Assumption id="A12" />
+                Avail. <Assumption id={stationSourceId(plant, "availability", "A12")} />
+              </th>
+              <th scope="col" className="num">
+                Tools <Assumption id={stationSourceId(plant, "parallelUnits", "A10")} />
               </th>
               <th scope="col" className="bar-col">
                 Utilization
@@ -71,6 +75,7 @@ export function StationTable({ plant, sim }: { plant: Plant; sim: SimResult }) {
                   <td className="num">{fmtNum(s.cycleTimeSeconds, 1)} s</td>
                   <td className="num">{fmtNum(s.firstPassYield, 2)}</td>
                   <td className="num">{fmtNum(s.availability, 2)}</td>
+                  <td className="num">{s.parallelUnits * lines}</td>
                   <td className="bar-col">
                     <div
                       className="stack"
@@ -99,9 +104,9 @@ export function StationTable({ plant, sim }: { plant: Plant; sim: SimResult }) {
         </table>
       </div>
       <p className="fine">
-        Blocked and down minutes are machine minutes summed across lines. Performance is 0.95 at
-        every station <Assumption id="A13" />, with 1 machine and 1 operator per station{" "}
-        <Assumption id="A10" />.
+        Blocked and down minutes are machine minutes summed across lines. Tools is the machine
+        count at that station across all lines. Performance is 0.95 at every station{" "}
+        <Assumption id={stationSourceId(plant, "performance", "A13")} />.
       </p>
     </Detail>
   );

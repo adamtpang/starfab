@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { LEVER_LIMITS } from "../applyLevers";
-import type { Station, StationId } from "../types";
+import { plantSourceId, stationSourceId } from "../plant";
+import type { Plant, StationId } from "../types";
 import { Assumption, Sourced } from "./Tag";
 
 export type LeverKey =
@@ -47,7 +48,7 @@ function Row({
 export function Levers({
   inputs,
   onChange,
-  stations,
+  seed,
   stationInputs,
   onStationChange,
   notes,
@@ -56,7 +57,7 @@ export function Levers({
 }: {
   inputs: LeverInputs;
   onChange: (key: LeverKey, value: string) => void;
-  stations: Station[];
+  seed: Plant;
   stationInputs: StationInputs;
   onStationChange: (id: StationId, field: StationField, value: string) => void;
   notes: string[];
@@ -64,6 +65,11 @@ export function Levers({
   dirty: boolean;
 }) {
   const L = LEVER_LIMITS;
+  const stations = seed.stations;
+  const units = seed.hall?.unitNounPlural ?? "units";
+  const cycles = [...new Set(stations.map((s) => s.cycleTimeSeconds))];
+  const cycleText =
+    cycles.length === 1 ? `the ${cycles[0].toFixed(1)} s engineered cycle` : "each station's engineered cycle";
 
   const number = (key: LeverKey, step: number, min?: number, max?: number) => (
     <input
@@ -117,7 +123,7 @@ export function Levers({
       <Row
         id="lever-parallelLines"
         label="Parallel lines"
-        tag={<Assumption id="A7" />}
+        tag={<Assumption id={plantSourceId(seed, "parallelLines", "A7")} />}
         hint="1 to 12. More lines: slower line takt, more capacity, same plant demand."
       >
         {number("parallelLines", 1, L.parallelLines.min, L.parallelLines.max)}
@@ -125,18 +131,18 @@ export function Levers({
 
       <Row
         id="lever-annualDemandKits"
-        label="Annual demand, kits"
-        tag={<Sourced>sourced May 26, 2026, plus A4</Sourced>}
+        label={`Annual demand, ${units}`}
+        tag={<Sourced>public figure plus {seed.demandInfo?.assumptionIds[0] ?? "A4"}</Sourced>}
         hint="Changes takt and planned units only. Capacity does not move."
       >
-        {number("annualDemandKits", 100000, L.annualDemandKits.min)}
+        {number("annualDemandKits", 10000, L.annualDemandKits.min)}
       </Row>
 
       <Row
         id="lever-cycleTimeMultiplier"
         label="Cycle-time multiplier"
-        tag={<Assumption id="A9" />}
-        hint="0.25 to 3. Multiplies the 12.0 s engineered cycle at every station."
+        tag={<Assumption id={stationSourceId(seed, "cycleTimeSeconds", "A9")} />}
+        hint={`0.25 to 3. Multiplies ${cycleText} at every station.`}
       >
         {slider(
           "cycleTimeMultiplier",
@@ -156,7 +162,7 @@ export function Levers({
       <Row
         id="lever-firstPassYield"
         label="First-pass yield"
-        tag={<Assumption id="A11" />}
+        tag={<Assumption id={stationSourceId(seed, "firstPassYield", "A11")} />}
         hint="0 to 1, every station. Lower yield: more scrap, lower quality and OEE."
       >
         {slider("firstPassYield", 0, 1, 0.01, "First-pass yield")}
@@ -166,7 +172,7 @@ export function Levers({
       <Row
         id="lever-availability"
         label="Availability"
-        tag={<Assumption id="A12" />}
+        tag={<Assumption id={stationSourceId(seed, "availability", "A12")} />}
         hint="0 to 1, every station. Lower availability: a larger downtime budget."
       >
         {slider("availability", 0, 1, 0.01, "Availability")}
@@ -185,7 +191,7 @@ export function Levers({
       <Row
         id="lever-bufferCapacity"
         label="Buffer size"
-        tag={<Assumption id="A14" />}
+        tag={<Assumption id={plantSourceId(seed, "bufferCapacity", "A14")} />}
         hint="0 to 20 units between stations. Buffers let stations keep working through a neighbor's outage."
       >
         {slider("bufferCapacity", L.bufferCapacity.min, L.bufferCapacity.max, 1, "Buffer size")}
@@ -205,7 +211,7 @@ export function Levers({
         <summary>Per-station overrides</summary>
         <p className="fine">
           Leave a cell blank to use the global lever. A filled cell wins for that station and can
-          move the bottleneck (try 24 for the S5 cycle).
+          move the bottleneck (try doubling one station's cycle).
         </p>
         <table>
           <thead>

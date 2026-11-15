@@ -21,7 +21,8 @@ The look is "Vacuum drafting" with the Weld arc palette, chosen by Adam on 2026-
 
 ## Layout
 
-- `data/plant.seed.json`: seed plant, with a source on every number
+- `data/plant.seed.json`: star hall seed (the kit line), with a source on every number
+- `data/fab.seed.json`: fab hall seed (fictional wafer line, assumptions A21 to A31 in `docs/fab-hall-model.md`)
 - `src/engine/`: `rng.ts`, `formulas.ts` (analytical calculator), `downtime.ts` (event calendar), `simulate.ts` (tick simulator), `engine.test.ts`
 - `src/applyLevers.ts`: what-if levers, with clamping and notes
 - `src/ramp.ts`: ramp test, sweeps one lever and finds where the line starts holding takt

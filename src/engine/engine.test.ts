@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import { applyLevers, sanitizeLevers } from "../applyLevers";
-import { SEED_PLANT } from "../plant";
+import { FAB_PLANT, SEED_PLANT } from "../plant";
 import { runRamp } from "../ramp";
 import type { Plant, Station, StationId } from "../types";
 import { eventDurations, placeMachineEvents } from "./downtime";
@@ -312,6 +312,44 @@ describe("finite buffers", () => {
       expect(g.average).toBeGreaterThanOrEqual(0);
       expect(g.average).toBeLessThanOrEqual(5);
     }
+  });
+});
+
+describe("fab hall (fictional)", () => {
+  const closed = computeClosedForm(FAB_PLANT);
+  const r = simulateShift(FAB_PLANT);
+
+  it("has a source on every numeric station field and six areas in two bays", () => {
+    expect(FAB_PLANT.parallelLines).toBe(2);
+    expect(FAB_PLANT.stations.map((s) => s.id)).toEqual(IDS);
+    for (const s of FAB_PLANT.stations) {
+      for (const [key, value] of Object.entries(s)) {
+        if (typeof value === "number") expect(s.sources[key]).toBeDefined();
+      }
+    }
+  });
+
+  it("derives takt from 1,200,000 wafers a year and makes lithography the bottleneck", () => {
+    expect(closed.plantDemandPerHour).toBeCloseTo(1200000 / 365 / 24, 8);
+    expect(closed.lineTaktSeconds).toBeCloseTo(3600 / (1200000 / 365 / 24 / 2), 8);
+    expect(closed.teSeconds.S2).toBeCloseTo(900 / (17 * 0.95 * 0.9), 8);
+    expect(closed.bottleneckStationId).toBe("S2");
+    expect(r.bottleneckStationId).toBe("S2");
+  });
+
+  it("conserves wafers, stays at or below the rate model, and is deterministic", () => {
+    expect(r.unitsGood + r.unitsScrap + r.wipEnd).toBe(r.unitsStarted);
+    expect(r.unitsGood).toBeGreaterThan(0);
+    expect(r.unitsGood).toBeLessThanOrEqual(closed.unitsGood);
+    expect(r.buffers.capacity).toBe(5);
+    expect(simulateShift(FAB_PLANT).unitsGood).toBe(r.unitsGood);
+  });
+
+  it("spends the exact downtime budget on every tool", () => {
+    FAB_PLANT.stations.forEach((s) => {
+      const budget = Math.round(0.1 * 43200) * 2 * s.parallelUnits;
+      expect(r.stationStats[s.id].downtimeSeconds).toBe(budget);
+    });
   });
 });
 

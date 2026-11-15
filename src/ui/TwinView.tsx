@@ -479,13 +479,14 @@ export default function TwinView({
         {basisOpen && (
           <div className="twin-basis">
             <p>
-              A fictional teaching line, not a model of any real plant. Material flow is
+              The {plant.hall?.label.toLowerCase() ?? "hall"} is fictional, not a model of any real
+              plant. Material flow is
               deterministic and seeded. Machine outlines show the simulated state of each
               station, one minute per step. At 1x, one second of playback is one simulated hour.
             </p>
             <p>
               Cycle times, yields, downtime and buffer sizes are planning assumptions, not
-              measured performance. Kits moving on the conveyors illustrate flow and are not a
+              measured performance. Units moving on the conveyors illustrate flow and are not a
               unit-by-unit replay. Station shapes and floor spacing are illustrative.
             </p>
             <p>Unofficial fan or learning project, not affiliated with SpaceX.</p>

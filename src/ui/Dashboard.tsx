@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ReactNode } from "react";
-import { DEMAND_CITATIONS, DEMAND_DATE, SHIFT_CITATION } from "../citations";
+import { SHIFT_CITATION } from "../citations";
 import { fmtClock, fmtHours, fmtInt, fmtNum, fmtPct, fmtSigned } from "../lib/format";
+import { plantSourceId, stationSourceId } from "../plant";
 import type { CrewId, Plant, SimResult, WhatIfLevers } from "../types";
 import { HourBoard, LineElevation, StateTimeline } from "./Charts";
 import { Detail } from "./Detail";
@@ -59,6 +60,7 @@ function Gauge({ label, value }: { label: string; value: number }) {
 export function Dashboard({
   plant,
   sim,
+  seed,
   levers,
   theme,
   crew,
@@ -66,6 +68,7 @@ export function Dashboard({
 }: {
   plant: Plant;
   sim: SimResult;
+  seed: Plant;
   levers: WhatIfLevers;
   theme: "vacuum" | "studio";
   crew: CrewId;
@@ -79,14 +82,19 @@ export function Dashboard({
   const behind = sim.aheadOrBehind < 0;
   const a = sim.analytical;
   const lineWord = plant.parallelLines === 1 ? "line" : "lines";
+  const units = plant.hall?.unitNounPlural ?? "units";
+  const info = plant.demandInfo;
+  const bufferId = plantSourceId(plant, "bufferCapacity", "A14");
+  const eventId = plantSourceId(plant, "meanDowntimeEventSeconds", "A17");
+  const eventMinutes = Math.round(plant.meanDowntimeEventSeconds / 60);
   const derived = <Derived>derived from sourced demand plus assumptions</Derived>;
 
   return (
     <div className="sheet">
       <div className="titleblock">
         <div className="tb-cell">
-          <span className="cell-label">TITLE</span>
-          <b>Shift record</b>
+          <span className="cell-label">HALL, FICTIONAL</span>
+          <b>{plant.hall?.label ?? "Shift record"}</b>
         </div>
         <div className="tb-cell tb-crew">
           <span className="cell-label" id="crew-label">
@@ -115,7 +123,7 @@ export function Dashboard({
         </div>
         <div className="tb-cell">
           <span className="cell-label">
-            LINES <Assumption id="A7" />
+            LINES <Assumption id={plantSourceId(plant, "parallelLines", "A7")} />
           </span>
           <b>{plant.parallelLines}</b>
         </div>
@@ -131,6 +139,7 @@ export function Dashboard({
 
       <Suspense fallback={<div className="twin twin-loading">Loading the floor twin.</div>}>
         <TwinView plant={plant} sim={sim} shift={shift} theme={theme} />
+        <p className="hall-blurb">{plant.hall?.blurb}</p>
       </Suspense>
 
       <div className="kpis">
@@ -168,7 +177,7 @@ export function Dashboard({
           <p className="fine">
             The bottleneck is the station with the lowest stand-alone good-unit rate (capacity
             times yield), upstream station on a tie. With identical stations that is S1. Six
-            generic stations in series <Assumption id="A8" />.
+            generic stations in series <Assumption id={stationSourceId(plant, "name", "A8")} />.
           </p>
         </Detail>
 
@@ -185,7 +194,7 @@ export function Dashboard({
           <p className="fine">
             Performance compares pack-out completions at the engineered cycle with the up time of
             the constraint, so upstream scrap and blocking pull it below the 0.95 pace{" "}
-            <Assumption id="A13" />.
+            <Assumption id={stationSourceId(plant, "performance", "A13")} />.
           </p>
         </Detail>
 
@@ -222,13 +231,13 @@ export function Dashboard({
             {sim.buffers.capacity === 0
               ? "With no buffers between stations"
               : `With room for only ${sim.buffers.capacity} ${sim.buffers.capacity === 1 ? "unit" : "units"} between stations`}{" "}
-            <Assumption id="A14" />, a station that goes down soon blocks everything upstream and
+            <Assumption id={bufferId} />, a station that goes down soon blocks everything upstream and
             starves everything downstream. Raise the buffer size lever to see the marks thin out.
-            Downtime events are about 15 minutes each <Assumption id="A17" />.
+            Downtime events are about {eventMinutes} minutes each <Assumption id={eventId} />.
           </p>
         </Detail>
 
-        <RampTest plant={plant} levers={levers} crew={crew} />
+        <RampTest plant={plant} seed={seed} levers={levers} crew={crew} />
 
         <StationTable plant={plant} sim={sim} />
 
@@ -295,34 +304,28 @@ export function Dashboard({
             crew runs the same production hours, so totals do not change with the crew.
           </p>
           <p className="fine">
-            Demand: {fmtInt(plant.annualDemandKits)} kits per year
-            {plant.annualDemandKits === 10000000 ? (
-              <>
-                , from a public statement of a target of 10 million kits per year by the end of
-                2026 ({DEMAND_DATE}):{" "}
-                {DEMAND_CITATIONS.map((c, i) => (
-                  <span key={c.url}>
-                    {i > 0 && ", "}
-                    <a href={c.url}>{c.title}</a>
-                  </span>
-                ))}
-                . Using it as plant-wide demand is <Assumption id="A4" />, one kit is one finished
-                unit <Assumption id="A5" />, spread evenly over the year <Assumption id="A6" />.
-              </>
-            ) : (
-              <>
-                {" "}
-                is a what-if value. The public figure is 10 million kits per year by the end of
-                2026 ({DEMAND_DATE}):{" "}
-                <a href={DEMAND_CITATIONS[0].url}>{DEMAND_CITATIONS[0].title}</a>.
-              </>
-            )}
+            Demand: {fmtInt(plant.annualDemandKits)} {units} per year
+            {plant.annualDemandKits === seed.annualDemandKits
+              ? `, ${info?.statement ?? "a seed value"} (${info?.date ?? "no date"}): `
+              : `, a what-if value. The seed figure is ${fmtInt(seed.annualDemandKits)}, ${info?.statement ?? ""} (${info?.date ?? "no date"}): `}
+            {info?.links.map((c, i) => (
+              <span key={c.url}>
+                {i > 0 && ", "}
+                <a href={c.url}>{c.title}</a>
+              </span>
+            ))}
+            . This hall is fictional, and using a public figure as its demand is{" "}
+            {info?.assumptionIds.map((id) => (
+              <span key={id}>
+                <Assumption id={id} />{" "}
+              </span>
+            ))}
           </p>
           <p className="fine">
             Analytical capacity (rate model, no blocking, no leftover WIP) gives{" "}
             {fmtInt(a.unitsGood)} good units, {fmtSigned(a.aheadOrBehind)} versus takt. The
             simulated shift lands at or below this. With small or no buffers{" "}
-            <Assumption id="A14" />, six separate downtime budgets stack up instead of
+            <Assumption id={bufferId} />, six separate downtime budgets stack up instead of
             overlapping. Cycle times also round up
             to whole 1 second ticks <Assumption id="A15" />, unfinished units stay on the line as
             WIP <Assumption id="A19" />, and S1 starts a unit whenever it is free{" "}

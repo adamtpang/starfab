@@ -12,7 +12,7 @@ export const LEVER_LIMITS = {
   scheduledHours: { min: 1, max: 16 },
   seed: { min: 0, max: 4294967295 },
   bufferCapacity: { min: 0, max: 20 },
-  stationCycleTimeSeconds: { min: 1, max: 120 },
+  stationCycleTimeSeconds: { min: 1, max: 3600 },
 } as const;
 
 export interface SanitizedLevers {

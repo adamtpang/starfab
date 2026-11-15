@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { applyLevers, sanitizeLevers } from "./applyLevers";
-import { DEMAND_CITATIONS, DEMAND_DATE, DOCS_URL, REPO_URL } from "./citations";
+import { DOCS_URL, REPO_URL } from "./citations";
 import { simulateShift } from "./engine/simulate";
-import { SEED_PLANT } from "./plant";
-import type { CrewId, StationId, WhatIfLevers } from "./types";
+import { HALLS, type HallId } from "./plant";
+import type { CrewId, Plant, StationId, WhatIfLevers } from "./types";
 import { Dashboard } from "./ui/Dashboard";
 import { Disclaimer } from "./ui/Disclaimer";
 import {
@@ -18,7 +18,7 @@ const DESCRIPTION =
   "An unofficial production-line simulation of a kit factory, built as a learning project and proof of work.";
 
 // Lever defaults come straight from the seed plant. Nothing is invented here.
-function defaultInputs(): LeverInputs {
+function defaultInputs(SEED_PLANT: Plant): LeverInputs {
   const s0 = SEED_PLANT.stations[0];
   return {
     parallelLines: String(SEED_PLANT.parallelLines),
@@ -32,7 +32,7 @@ function defaultInputs(): LeverInputs {
   };
 }
 
-function defaultStationInputs(): StationInputs {
+function defaultStationInputs(SEED_PLANT: Plant): StationInputs {
   const out = {} as StationInputs;
   for (const s of SEED_PLANT.stations) out[s.id] = { cycle: "", yield: "", availability: "" };
   return out;
@@ -83,8 +83,18 @@ function toLevers(inputs: LeverInputs, stationInputs: StationInputs): WhatIfLeve
 }
 
 export default function App() {
-  const [inputs, setInputs] = useState<LeverInputs>(defaultInputs);
-  const [stationInputs, setStationInputs] = useState<StationInputs>(defaultStationInputs);
+  const [hall, setHall] = useState<HallId>("star");
+  const seed = HALLS[hall];
+  const [inputs, setInputs] = useState<LeverInputs>(() => defaultInputs(HALLS.star));
+  const [stationInputs, setStationInputs] = useState<StationInputs>(() =>
+    defaultStationInputs(HALLS.star),
+  );
+  // Each hall has its own seed, so switching halls starts from that seed.
+  const chooseHall = (next: HallId) => {
+    setHall(next);
+    setInputs(defaultInputs(HALLS[next]));
+    setStationInputs(defaultStationInputs(HALLS[next]));
+  };
   const [crew, setCrew] = useState<CrewId>("A");
   const [theme, setTheme] = useState<Theme>(initialTheme);
 
@@ -110,13 +120,13 @@ export default function App() {
   const { plant, notes, sim, levers } = useMemo(() => {
     const raw = toLevers(inputs, stationInputs);
     const { notes, levers } = sanitizeLevers(raw);
-    const plant = applyLevers(SEED_PLANT, raw);
+    const plant = applyLevers(seed, raw);
     return { plant, notes, levers, sim: simulateShift(plant, { crew }) };
-  }, [inputs, stationInputs, crew]);
+  }, [inputs, stationInputs, crew, seed]);
 
   const dirty =
-    JSON.stringify(inputs) !== JSON.stringify(defaultInputs()) ||
-    JSON.stringify(stationInputs) !== JSON.stringify(defaultStationInputs());
+    JSON.stringify(inputs) !== JSON.stringify(defaultInputs(seed)) ||
+    JSON.stringify(stationInputs) !== JSON.stringify(defaultStationInputs(seed));
 
   return (
     <>
@@ -125,6 +135,19 @@ export default function App() {
         <header className="masthead">
           <h1>starfab</h1>
           <p className="desc">{DESCRIPTION}</p>
+          <div className="hall-switch" role="group" aria-label="Hall">
+            {(Object.keys(HALLS) as HallId[]).map((id) => (
+              <button
+                key={id}
+                type="button"
+                className={id === hall ? "crew-btn active" : "crew-btn"}
+                aria-pressed={id === hall}
+                onClick={() => chooseHall(id)}
+              >
+                {HALLS[id].hall?.label ?? id}
+              </button>
+            ))}
+          </div>
           {/* One button. Its label names the mode you would switch to. */}
           <button
             type="button"
@@ -139,6 +162,7 @@ export default function App() {
           <Dashboard
             plant={plant}
             sim={sim}
+            seed={seed}
             levers={levers}
             crew={crew}
             onCrew={setCrew}
@@ -147,15 +171,15 @@ export default function App() {
           <Levers
             inputs={inputs}
             onChange={(key: LeverKey, value: string) => setInputs((p) => ({ ...p, [key]: value }))}
-            stations={SEED_PLANT.stations}
+            seed={seed}
             stationInputs={stationInputs}
             onStationChange={(id: StationId, field: StationField, value: string) =>
               setStationInputs((p) => ({ ...p, [id]: { ...p[id], [field]: value } }))
             }
             notes={notes}
             onReset={() => {
-              setInputs(defaultInputs());
-              setStationInputs(defaultStationInputs());
+              setInputs(defaultInputs(seed));
+              setStationInputs(defaultStationInputs(seed));
             }}
             dirty={dirty}
           />
@@ -169,9 +193,10 @@ export default function App() {
             cycle times, yields, downtime, line counts, and layouts are unknown.
           </p>
           <p>
-            Takt and planned units derive from one public figure: a stated target of 10 million
-            kits per year by the end of 2026 ({DEMAND_DATE}). Sources:{" "}
-            {DEMAND_CITATIONS.map((c, i) => (
+            Both halls are fictional. Public figures are used only to give each hall a believable
+            scale. In the {seed.hall?.label.toLowerCase() ?? "hall"}, takt and planned units are{" "}
+            {seed.demandInfo?.statement} ({seed.demandInfo?.date}). Sources:{" "}
+            {seed.demandInfo?.links.map((c, i) => (
               <span key={c.url}>
                 {i > 0 && ", "}
                 <a href={c.url}>{c.title}</a>

@@ -541,5 +541,36 @@
         }
       }
     }
-  ]
+  ],
+  "hall": {
+    "id": "star",
+    "label": "Star hall",
+    "product": "terminal kits",
+    "unitNoun": "kit",
+    "unitNounPlural": "kits",
+    "blurb": "A fictional kit line: six stations in series on four identical lines."
+  },
+  "demandInfo": {
+    "statement": "from a public statement of a target of 10 million kits per year by the end of 2026",
+    "date": "remarks of May 26, 2026; recorded again Nov 14, 2026",
+    "links": [
+      {
+        "title": "Elgin Courier",
+        "url": "https://www.elgincourier.com/article/4684,spacex-closer-to-855m-starlink-expansion"
+      },
+      {
+        "title": "Community Impact",
+        "url": "https://communityimpact.com/bastrop-cedar-creek/development/bastrop-county-backs-spacex-application-for-state-sales-tax-incentive/"
+      },
+      {
+        "title": "Austin Business Journal",
+        "url": "https://www.bizjournals.com/austin/news/2026/05/26/spacex-bastrop-county-starlink-incentives.html"
+      }
+    ],
+    "assumptionIds": [
+      "A4",
+      "A5",
+      "A6"
+    ]
+  }
 }

@@ -38,7 +38,7 @@ export interface ShiftPattern {
 }
 
 export interface Plant {
-  name: "starfab teaching model";
+  name: string;
   unofficialDisclaimer: "Unofficial fan or learning project, not affiliated with SpaceX.";
   annualDemandKits: number; // sourced 10,000,000 plus A4
   calendarDays: number; // A6, 365
@@ -47,9 +47,29 @@ export interface Plant {
   rngSeed: number; // A16, default 1
   meanDowntimeEventSeconds: number; // A17, default 900
   bufferCapacity?: number; // units between adjacent stations, A14 default 0
+  hall?: HallInfo;
+  demandInfo?: DemandInfo;
   stations: Station[];
   shifts: ShiftPattern[];
   sources?: Record<string, Source>;
+}
+
+// Which fictional hall this plant is, and what it makes.
+export interface HallInfo {
+  id: string;
+  label: string;
+  product: string;
+  unitNoun: string;
+  unitNounPlural: string;
+  blurb: string;
+}
+
+// Where the demand figure comes from, in words, with links and a date.
+export interface DemandInfo {
+  statement: string;
+  date: string;
+  links: { title: string; url: string }[];
+  assumptionIds: string[];
 }
 
 export interface WhatIfLevers {
