@@ -125,19 +125,14 @@ export default function App() {
         <header className="masthead">
           <h1>starfab</h1>
           <p className="desc">{DESCRIPTION}</p>
-          <div className="theme-toggle" role="group" aria-label="Theme">
-            {(["vacuum", "studio"] as Theme[]).map((t) => (
-              <button
-                key={t}
-                type="button"
-                className={t === theme ? "crew-btn active" : "crew-btn"}
-                aria-pressed={t === theme}
-                onClick={() => setTheme(t)}
-              >
-                {t === "vacuum" ? "Vacuum" : "Studio"}
-              </button>
-            ))}
-          </div>
+          {/* One button. Its label names the mode you would switch to. */}
+          <button
+            type="button"
+            className="crew-btn theme-toggle"
+            onClick={() => setTheme(theme === "studio" ? "vacuum" : "studio")}
+          >
+            {theme === "studio" ? "Dark mode" : "Light mode"}
+          </button>
         </header>
 
         <main className="layout">

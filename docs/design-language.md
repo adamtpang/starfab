@@ -63,7 +63,7 @@ One language, two themes. Both follow the same six rules and differ only in toke
 - **Vacuum** (default): the dark Weld arc palette above.
 - **Studio**: a light theme added on Nov 14, 2026, in the manner of a digital-twin vendor's studio renders. Light gray page, white details, dark ink, the same violet and red meanings. In the floor twin, Studio also turns on soft lighting and tints each machine body by state, where Vacuum keeps flat fills with colored outlines.
 
-Switch with the toggle in the masthead, or open the page with `#studio` or `#vacuum` in the address. The choice is remembered in the browser.
+Switch with the single light or dark mode button in the masthead, or open the page with `#studio` or `#vacuum` in the address. The choice is remembered in the browser.
 
 ## Type roles
 
