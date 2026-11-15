@@ -166,6 +166,14 @@ strong {
   border-color: var(--fault);
 }
 
+.file-report details {
+  margin: 0.4rem 0 0.6rem;
+}
+
+.file-report summary {
+  cursor: pointer;
+}
+
 .file-report ul {
   margin: 0.4rem 0 0.6rem;
   padding-left: 1.2rem;
@@ -952,6 +960,71 @@ svg text.g-flag {
   .ramp {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* Ask the twin */
+
+.ask-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+}
+
+.ask-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line-dim);
+  background: var(--sheet-lo);
+  color: var(--ink);
+  font-family: var(--ui);
+  font-size: 1rem;
+}
+
+.ask-row input:hover,
+.ask-row input:focus {
+  border-color: var(--line);
+}
+
+.ask-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.6rem;
+}
+
+.ask-examples .crew-btn {
+  font-family: var(--ui);
+  font-size: 0.85rem;
+  letter-spacing: 0;
+}
+
+.ask-answer {
+  margin-top: 0.8rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+}
+
+.ask-answer-bad {
+  border-color: var(--fault);
+}
+
+.ask-answer b {
+  display: block;
+  margin-top: 0.2rem;
+  font-family: var(--display);
+  font-weight: 300;
+  font-size: 1.3rem;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+.ask-answer ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
+  color: var(--ink);
+  line-height: 1.55;
 }
 
 /* OEE gauges */

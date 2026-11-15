@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { applyLevers, sanitizeLevers } from "../applyLevers";
 import { ASSEMBLY_PLANT, FAB_PLANT, SEED_PLANT } from "../plant";
+import { askTwin } from "../ask";
 import { parsePlantFile, plantToFile } from "../plantFile";
 import { runRamp } from "../ramp";
 import { VISIT_OUTCOME } from "../types";
@@ -631,6 +632,71 @@ describe("supplier deliveries", () => {
   });
 });
 
+describe("ask the twin (rule-based)", () => {
+  it("turns a tool question into a lever change and two runs", () => {
+    const a = askTwin("What if S2 loses a tool?", FAB_PLANT, {});
+    expect(a.understood).toBe(true);
+    expect(a.change).toEqual({ parallelUnitsByStation: { S2: 16 } });
+    const base = simulateShift(FAB_PLANT).unitsGood;
+    const fewer = simulateShift(applyLevers(FAB_PLANT, { parallelUnitsByStation: { S2: 16 } })).unitsGood;
+    expect(fewer).toBeLessThan(base);
+    expect(a.lines[0]).toContain(base.toLocaleString("en-US"));
+    expect(a.lines[0]).toContain(fewer.toLocaleString("en-US"));
+    expect(a.run).toMatch(/Two runs compared/);
+  });
+
+  it("finds a station by name and adds a tool", () => {
+    const a = askTwin("what if lithography gets another tool", FAB_PLANT, {});
+    expect(a.change).toEqual({ parallelUnitsByStation: { S2: 18 } });
+    const b = askTwin("what if litho gains a machine", FAB_PLANT, {});
+    expect(b.change).toEqual({ parallelUnitsByStation: { S2: 18 } });
+  });
+
+  it("handles lines, speed, availability, yield, buffers, demand and hours", () => {
+    expect(askTwin("add a line", SEED_PLANT, {}).change).toEqual({ parallelLines: 5 });
+    expect(askTwin("what if we had 8 lines", SEED_PLANT, {}).change).toEqual({ parallelLines: 8 });
+    expect(askTwin("what if test is 20% slower", SEED_PLANT, {}).change).toEqual({ cycleTimeSeconds: { S5: 14.4 } });
+    expect(askTwin("what if everything is 10% faster", SEED_PLANT, {}).change).toEqual({ cycleTimeMultiplier: 0.9 });
+    expect(askTwin("what if availability is 95%", SEED_PLANT, {}).change).toEqual({ availability: 0.95 });
+    expect(askTwin("what if availability at S3 is 0.8", SEED_PLANT, {}).change).toEqual({
+      availabilityByStation: { S3: 0.8 },
+    });
+    expect(askTwin("what if yield is 0.99", SEED_PLANT, {}).change).toEqual({ firstPassYield: 0.99 });
+    expect(askTwin("what if the buffer is 5", SEED_PLANT, {}).change).toEqual({ bufferCapacity: 5 });
+    expect(askTwin("what if demand doubles", SEED_PLANT, {}).change).toEqual({ annualDemandKits: 20000000 });
+    expect(askTwin("what if demand drops 20%", SEED_PLANT, {}).change).toEqual({ annualDemandKits: 8000000 });
+    expect(askTwin("what about an 8 hour shift", SEED_PLANT, {}).change).toEqual({ scheduledHours: 8 });
+  });
+
+  it("answers lookups from the current run", () => {
+    expect(askTwin("What is the bottleneck?", SEED_PLANT, {}).lines[0]).toMatch(/^S1 Kitting/);
+    expect(askTwin("what is the bottleneck", FAB_PLANT, {}).lines[0]).toMatch(/^S2 Lithography/);
+    expect(askTwin("where is it blocked most", SEED_PLANT, {}).lines[0]).toMatch(/^S1 Kitting: 1,037 machine minutes/);
+    expect(askTwin("how many lines to hold takt?", SEED_PLANT, {}).lines[0]).toMatch(/parallel lines 10/);
+  });
+
+  it("builds on the levers that are already set", () => {
+    const a = askTwin("add a line", SEED_PLANT, { parallelLines: 6 });
+    expect(a.change).toEqual({ parallelLines: 7 });
+  });
+
+  it("refuses to take away a station's only machine, and says why", () => {
+    const a = askTwin("what if kitting loses a machine", SEED_PLANT, {});
+    expect(a.understood).toBe(true);
+    expect(a.change).toBeNull();
+    expect(a.run).toBe("No run was made.");
+  });
+
+  it("says plainly when it does not understand, and makes no run", () => {
+    for (const q of ["sing me a song", "", "is this a good factory?", "what if it is slower"]) {
+      const a = askTwin(q, SEED_PLANT, {});
+      expect(a.understood).toBe(false);
+      expect(a.change).toBeNull();
+      expect(a.run).toBe("No run was made.");
+    }
+  });
+});
+
 describe("loading a plant from a file", () => {
   it("round-trips every built-in hall with identical results", () => {
     for (const hall of [SEED_PLANT, FAB_PLANT, ASSEMBLY_PLANT]) {
@@ -672,6 +738,18 @@ describe("loading a plant from a file", () => {
       "parallelLines must be between 1 and 12. The file has 0.",
       "annualDemandKits is missing.",
     ]);
+  });
+
+  it("keeps per-station values that differ, and reports them back unchanged", () => {
+    const file = JSON.parse(plantToFile(SEED_PLANT));
+    file.stations[1].firstPassYield = 0.9;
+    file.stations[2].availability = 0.8;
+    const { plant } = parsePlantFile(JSON.stringify(file), SEED_PLANT);
+    // No levers moved: the loaded values must reach the simulator as written.
+    const run = applyLevers(plant!, {});
+    expect(run.stations.map((s) => s.firstPassYield)).toEqual([0.97, 0.9, 0.97, 0.97, 0.97, 0.97]);
+    expect(run.stations.map((s) => s.availability)).toEqual([0.9, 0.9, 0.8, 0.9, 0.9, 0.9]);
+    expect(simulateShift(run).rtyTheoretical).toBeCloseTo(0.97 ** 5 * 0.9, 12);
   });
 
   it("lists each default it had to fill in", () => {

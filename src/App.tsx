@@ -58,7 +58,7 @@ function parse(text: string): number {
   return text.trim() === "" ? Number.NaN : Number(text);
 }
 
-function toLevers(inputs: LeverInputs, stationInputs: StationInputs): WhatIfLevers {
+function toLevers(inputs: LeverInputs, stationInputs: StationInputs, seed: Plant): WhatIfLevers {
   const cycleTimeSeconds: Partial<Record<StationId, number>> = {};
   const firstPassYieldByStation: Partial<Record<StationId, number>> = {};
   const availabilityByStation: Partial<Record<StationId, number>> = {};
@@ -72,8 +72,17 @@ function toLevers(inputs: LeverInputs, stationInputs: StationInputs): WhatIfLeve
     parallelLines: parse(inputs.parallelLines),
     annualDemandKits: parse(inputs.annualDemandKits),
     cycleTimeMultiplier: parse(inputs.cycleTimeMultiplier),
-    firstPassYield: parse(inputs.firstPassYield),
-    availability: parse(inputs.availability),
+    // The yield and availability levers set every station at once. Left at
+    // their starting value they do nothing, so a plant whose stations differ
+    // keeps its own per-station values until a lever is actually moved.
+    firstPassYield:
+      inputs.firstPassYield === String(seed.stations[0].firstPassYield)
+        ? undefined
+        : parse(inputs.firstPassYield),
+    availability:
+      inputs.availability === String(seed.stations[0].availability)
+        ? undefined
+        : parse(inputs.availability),
     scheduledHours: parse(inputs.scheduledHours),
     bufferCapacity: parse(inputs.bufferCapacity),
     seed: parse(inputs.seed),
@@ -144,7 +153,7 @@ export default function App() {
   }, []);
 
   const { plant, notes, sim, levers } = useMemo(() => {
-    const raw = toLevers(inputs, stationInputs);
+    const raw = toLevers(inputs, stationInputs, seed);
     const { notes, levers } = sanitizeLevers(raw);
     const plant = applyLevers(seed, raw);
     return { plant, notes, levers, sim: simulateShift(plant, { crew }) };
@@ -213,11 +222,16 @@ export default function App() {
               </ul>
             )}
             {fileReport.plant && fileReport.defaults.length > 0 && (
-              <ul>
-                {fileReport.defaults.map((d) => (
-                  <li key={d}>{d}</li>
-                ))}
-              </ul>
+              <details>
+                <summary>
+                  {fileReport.defaults.length} values were not in the file. See what was used.
+                </summary>
+                <ul>
+                  {fileReport.defaults.map((d) => (
+                    <li key={d}>{d}</li>
+                  ))}
+                </ul>
+              </details>
             )}
             <button type="button" className="crew-btn" onClick={() => setFileReport(null)}>
               Dismiss

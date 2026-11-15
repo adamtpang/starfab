@@ -4,6 +4,7 @@ import { fmtClock, fmtHours, fmtInt, fmtNum, fmtPct, fmtSigned } from "../lib/fo
 import { plantSourceId, stationSourceId } from "../plant";
 import type { CrewId, Plant, SimResult, WhatIfLevers } from "../types";
 import { HourBoard, LineElevation, StateTimeline } from "./Charts";
+import { AskTwin } from "./AskTwin";
 import { Detail } from "./Detail";
 import { DowntimePareto } from "./DowntimePareto";
 import { RampTest } from "./RampTest";
@@ -93,7 +94,7 @@ export function Dashboard({
     <div className="sheet">
       <div className="titleblock">
         <div className="tb-cell">
-          <span className="cell-label">HALL, FICTIONAL</span>
+          <span className="cell-label">{plant.hall?.id === "custom" ? "FROM YOUR FILE" : "HALL, FICTIONAL"}</span>
           <b>{plant.hall?.label ?? "Shift record"}</b>
         </div>
         <div className="tb-cell tb-crew">
@@ -239,9 +240,11 @@ export function Dashboard({
 
         <RampTest plant={plant} seed={seed} levers={levers} crew={crew} />
 
+        <AskTwin plant={plant} seed={seed} levers={levers} crew={crew} />
+
         <StationTable plant={plant} sim={sim} />
 
-        <Detail letter="H" title="Shift figures" span="full">
+        <Detail letter="I" title="Shift figures" span="full">
           <dl className="figures">
             <Figure label="Units started" value={fmtInt(sim.unitsStarted)} tag={<ModelOutput />} />
             <Figure

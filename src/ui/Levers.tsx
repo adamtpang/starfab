@@ -68,6 +68,10 @@ export function Levers({
   const stations = seed.stations;
   const units = seed.hall?.unitNounPlural ?? "units";
   const cycles = [...new Set(stations.map((s) => s.cycleTimeSeconds))];
+  const differs = (key: "firstPassYield" | "availability") =>
+    new Set(stations.map((s) => s[key])).size > 1
+      ? " Stations differ in this plant: moving this sets them all to one value."
+      : "";
   const cycleText =
     cycles.length === 1 ? `the ${cycles[0].toFixed(1)} s engineered cycle` : "each station's engineered cycle";
 
@@ -169,7 +173,7 @@ export function Levers({
         id="lever-firstPassYield"
         label="First-pass yield"
         tag={<Assumption id={stationSourceId(seed, "firstPassYield", "A11")} />}
-        hint="0 to 1, every station. Lower yield: more scrap, lower quality and OEE."
+        hint={`0 to 1, every station. Lower yield: more scrap, lower quality and OEE.${differs("firstPassYield")}`}
       >
         {slider("firstPassYield", 0, 1, 0.01, "First-pass yield")}
         {number("firstPassYield", 0.01, 0, 1)}
@@ -179,7 +183,7 @@ export function Levers({
         id="lever-availability"
         label="Availability"
         tag={<Assumption id={stationSourceId(seed, "availability", "A12")} />}
-        hint="0 to 1, every station. Lower availability: a larger downtime budget."
+        hint={`0 to 1, every station. Lower availability: a larger downtime budget.${differs("availability")}`}
       >
         {slider("availability", 0, 1, 0.01, "Availability")}
         {number("availability", 0.01, 0, 1)}

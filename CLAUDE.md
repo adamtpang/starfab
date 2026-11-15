@@ -28,6 +28,8 @@ The look is "Vacuum drafting" with the Weld arc palette, chosen by Adam on 2026-
 - `src/engine/`: `rng.ts`, `formulas.ts` (analytical calculator), `downtime.ts` (event calendar), `simulate.ts` (tick simulator), `engine.test.ts`
 - `src/applyLevers.ts`: what-if levers, with clamping and notes
 - `src/ramp.ts`: ramp test, sweeps one lever and finds where the line starts holding takt
+- `src/plantFile.ts`: loads and checks a plant file picked by the visitor, and saves a hall in the same shape
+- `src/ask.ts`: the rule-based question box. Fixed patterns only, every answer is a simulator run, unknown questions get "not understood". Keep it that way: no AI model without Adam changing the no-backend and no-paid-services rules
 - `src/ui/`: dashboard components. `TwinView.tsx` is the 3D floor twin
 
 ## Beyond the tech spec

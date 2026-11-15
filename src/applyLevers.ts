@@ -13,6 +13,7 @@ export const LEVER_LIMITS = {
   seed: { min: 0, max: 4294967295 },
   bufferCapacity: { min: 0, max: 20 },
   stationCycleTimeSeconds: { min: 1, max: 3600 },
+  stationParallelUnits: { min: 1, max: 40 },
 } as const;
 
 export interface SanitizedLevers {
@@ -61,6 +62,15 @@ function clampMap(
   return out;
 }
 
+function roundMap(
+  map: Partial<Record<StationId, number>> | undefined,
+): Partial<Record<StationId, number>> | undefined {
+  if (!map) return undefined;
+  const out: Partial<Record<StationId, number>> = {};
+  for (const id of Object.keys(map) as StationId[]) out[id] = Math.round(map[id] as number);
+  return out;
+}
+
 export function sanitizeLevers(levers: WhatIfLevers): SanitizedLevers {
   const notes: string[] = [];
   const L = LEVER_LIMITS;
@@ -73,6 +83,9 @@ export function sanitizeLevers(levers: WhatIfLevers): SanitizedLevers {
     scheduledHours: clamp("Scheduled hours", levers.scheduledHours, L.scheduledHours.min, L.scheduledHours.max, notes),
     seed: clamp("Seed", levers.seed, L.seed.min, L.seed.max, notes, true),
     bufferCapacity: clamp("Buffer size", levers.bufferCapacity, L.bufferCapacity.min, L.bufferCapacity.max, notes, true),
+    parallelUnitsByStation: roundMap(
+      clampMap("machines", levers.parallelUnitsByStation, L.stationParallelUnits.min, L.stationParallelUnits.max, notes),
+    ),
     cycleTimeSeconds: clampMap("cycle time", levers.cycleTimeSeconds, L.stationCycleTimeSeconds.min, L.stationCycleTimeSeconds.max, notes),
     firstPassYieldByStation: clampMap("yield", levers.firstPassYieldByStation, 0, 1, notes),
     availabilityByStation: clampMap("availability", levers.availabilityByStation, 0, 1, notes),
@@ -98,6 +111,7 @@ export function applyLevers(plant: Plant, levers: WhatIfLevers): Plant {
       firstPassYield:
         l.firstPassYieldByStation?.[s.id] ?? l.firstPassYield ?? s.firstPassYield,
       availability: l.availabilityByStation?.[s.id] ?? l.availability ?? s.availability,
+      parallelUnits: l.parallelUnitsByStation?.[s.id] ?? s.parallelUnits,
     })),
     shifts: plant.shifts.map((sh) => ({
       ...sh,

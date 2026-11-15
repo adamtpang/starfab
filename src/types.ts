@@ -95,6 +95,7 @@ export interface WhatIfLevers {
   cycleTimeSeconds?: Partial<Record<StationId, number>>;
   firstPassYieldByStation?: Partial<Record<StationId, number>>;
   availabilityByStation?: Partial<Record<StationId, number>>;
+  parallelUnitsByStation?: Partial<Record<StationId, number>>; // machines per line at a station
 }
 
 export interface ClosedFormResult {
