@@ -1,0 +1,576 @@
+{
+  "name": "starfab fab hall",
+  "unofficialDisclaimer": "Unofficial fan or learning project, not affiliated with SpaceX.",
+  "annualDemandKits": 1200000,
+  "calendarDays": 365,
+  "hoursPerDay": 24,
+  "parallelLines": 2,
+  "rngSeed": 1,
+  "meanDowntimeEventSeconds": 1800,
+  "bufferCapacity": 5,
+  "hall": {
+    "id": "fab",
+    "label": "Fab hall",
+    "product": "wafers",
+    "unitNoun": "wafer",
+    "unitNounPlural": "wafers",
+    "blurb": "A fictional wafer line: six process areas in series in two identical bays, with many tools per area."
+  },
+  "demandInfo": {
+    "statement": "sized against an announced initial target of 100,000 wafer starts a month for a planned chip plant, times 12",
+    "date": "announced Mar 21, 2026; read Nov 14, 2026",
+    "links": [
+      {
+        "title": "Wikipedia: Terafab",
+        "url": "https://en.wikipedia.org/wiki/Terafab"
+      },
+      {
+        "title": "terafab.ai",
+        "url": "https://terafab.ai"
+      }
+    ],
+    "assumptionIds": [
+      "A28",
+      "A22"
+    ]
+  },
+  "sources": {
+    "annualDemandKits": {
+      "kind": "public",
+      "title": "Wikipedia: Terafab (announced initial target of 100,000 wafer starts a month)",
+      "url": "https://en.wikipedia.org/wiki/Terafab",
+      "date": "Announced Mar 21, 2026; read Nov 14, 2026",
+      "excerpt": "An announced target, not a measured output. Used only to size a fictional hall."
+    },
+    "annualDemandKitsUse": {
+      "kind": "assumption",
+      "id": "A28",
+      "note": "1,200,000 wafers a year treated as demand on this fictional hall, spread evenly over the year."
+    },
+    "calendarDays": {
+      "kind": "assumption",
+      "id": "A28",
+      "note": "Demand is spread evenly over 365 days."
+    },
+    "hoursPerDay": {
+      "kind": "assumption",
+      "id": "A3",
+      "note": "Coverage is modeled as 24 hours a day, 365 days a year."
+    },
+    "parallelLines": {
+      "kind": "assumption",
+      "id": "A29",
+      "note": "2 identical bays in parallel. Real fab organisation is unknown."
+    },
+    "rngSeed": {
+      "kind": "assumption",
+      "id": "A16",
+      "note": "RNG seed 1 with mulberry32."
+    },
+    "meanDowntimeEventSeconds": {
+      "kind": "assumption",
+      "id": "A31",
+      "note": "Mean downtime event of 1,800 seconds, exact budget per tool."
+    },
+    "bufferCapacity": {
+      "kind": "assumption",
+      "id": "A30",
+      "note": "Room for 5 wafers between areas, standing in for stockers and transport."
+    },
+    "tickSeconds": {
+      "kind": "assumption",
+      "id": "A15",
+      "note": "Tick is 1.0 second."
+    },
+    "downtimeReasons": {
+      "kind": "assumption",
+      "id": "A18",
+      "note": "Reasons cycle at 4, 3, 2, 1 per 10 events. Not plant data."
+    },
+    "flattenedRoute": {
+      "kind": "assumption",
+      "id": "A22",
+      "note": "One unit is one wafer and each station visit stands for all of its visits to that area."
+    },
+    "endOfShiftWip": {
+      "kind": "assumption",
+      "id": "A19",
+      "note": "Incomplete units at the end of the shift are WIP."
+    },
+    "starts": {
+      "kind": "assumption",
+      "id": "A20",
+      "note": "New wafers start at the first area whenever a tool is free."
+    }
+  },
+  "stations": [
+    {
+      "id": "S1",
+      "name": "Deposition",
+      "cycleTimeSeconds": 600,
+      "parallelUnits": 13,
+      "operators": 1,
+      "firstPassYield": 0.99,
+      "availability": 0.9,
+      "performance": 0.95,
+      "sources": {
+        "name": {
+          "kind": "assumption",
+          "id": "A21",
+          "note": "Six textbook process areas in series. Not a real route or layout."
+        },
+        "cycleTimeSeconds": {
+          "kind": "assumption",
+          "id": "A23",
+          "note": "Summed cycle time per wafer per tool. Invented round number, not measured."
+        },
+        "parallelUnits": {
+          "kind": "assumption",
+          "id": "A24",
+          "note": "Tools per area per bay. Real tool counts are unknown."
+        },
+        "operators": {
+          "kind": "assumption",
+          "id": "A24",
+          "note": "One operator per area. Real staffing is unknown."
+        },
+        "firstPassYield": {
+          "kind": "assumption",
+          "id": "A25",
+          "note": "Yield 0.99 per area, per wafer, no rework. Real yields are unknown."
+        },
+        "availability": {
+          "kind": "assumption",
+          "id": "A26",
+          "note": "Availability 0.90. Real tool availability is unknown."
+        },
+        "performance": {
+          "kind": "assumption",
+          "id": "A27",
+          "note": "Pace of 0.95 versus the summed cycle. Real pace is unknown."
+        }
+      }
+    },
+    {
+      "id": "S2",
+      "name": "Lithography",
+      "cycleTimeSeconds": 900,
+      "parallelUnits": 17,
+      "operators": 1,
+      "firstPassYield": 0.99,
+      "availability": 0.9,
+      "performance": 0.95,
+      "sources": {
+        "name": {
+          "kind": "assumption",
+          "id": "A21",
+          "note": "Six textbook process areas in series. Not a real route or layout."
+        },
+        "cycleTimeSeconds": {
+          "kind": "assumption",
+          "id": "A23",
+          "note": "Summed cycle time per wafer per tool. Invented round number, not measured."
+        },
+        "parallelUnits": {
+          "kind": "assumption",
+          "id": "A24",
+          "note": "Tools per area per bay. Real tool counts are unknown."
+        },
+        "operators": {
+          "kind": "assumption",
+          "id": "A24",
+          "note": "One operator per area. Real staffing is unknown."
+        },
+        "firstPassYield": {
+          "kind": "assumption",
+          "id": "A25",
+          "note": "Yield 0.99 per area, per wafer, no rework. Real yields are unknown."
+        },
+        "availability": {
+          "kind": "assumption",
+          "id": "A26",
+          "note": "Availability 0.90. Real tool availability is unknown."
+        },
+        "performance": {
+          "kind": "assumption",
+          "id": "A27",
+          "note": "Pace of 0.95 versus the summed cycle. Real pace is unknown."
+        }
+      }
+    },
+    {
+      "id": "S3",
+      "name": "Etch",
+      "cycleTimeSeconds": 600,
+      "parallelUnits": 13,
+      "operators": 1,
+      "firstPassYield": 0.99,
+      "availability": 0.9,
+      "performance": 0.95,
+      "sources": {
+        "name": {
+          "kind": "assumption",
+          "id": "A21",
+          "note": "Six textbook process areas in series. Not a real route or layout."
+        },
+        "cycleTimeSeconds": {
+          "kind": "assumption",
+          "id": "A23",
+          "note": "Summed cycle time per wafer per tool. Invented round number, not measured."
+        },
+        "parallelUnits": {
+          "kind": "assumption",
+          "id": "A24",
+          "note": "Tools per area per bay. Real tool counts are unknown."
+        },
+        "operators": {
+          "kind": "assumption",
+          "id": "A24",
+          "note": "One operator per area. Real staffing is unknown."
+        },
+        "firstPassYield": {
+          "kind": "assumption",
+          "id": "A25",
+          "note": "Yield 0.99 per area, per wafer, no rework. Real yields are unknown."
+        },
+        "availability": {
+          "kind": "assumption",
+          "id": "A26",
+          "note": "Availability 0.90. Real tool availability is unknown."
+        },
+        "performance": {
+          "kind": "assumption",
+          "id": "A27",
+          "note": "Pace of 0.95 versus the summed cycle. Real pace is unknown."
+        }
+      }
+    },
+    {
+      "id": "S4",
+      "name": "Implant and anneal",
+      "cycleTimeSeconds": 300,
+      "parallelUnits": 7,
+      "operators": 1,
+      "firstPassYield": 0.99,
+      "availability": 0.9,
+      "performance": 0.95,
+      "sources": {
+        "name": {
+          "kind": "assumption",
+          "id": "A21",
+          "note": "Six textbook process areas in series. Not a real route or layout."
+        },
+        "cycleTimeSeconds": {
+          "kind": "assumption",
+          "id": "A23",
+          "note": "Summed cycle time per wafer per tool. Invented round number, not measured."
+        },
+        "parallelUnits": {
+          "kind": "assumption",
+          "id": "A24",
+          "note": "Tools per area per bay. Real tool counts are unknown."
+        },
+        "operators": {
+          "kind": "assumption",
+          "id": "A24",
+          "note": "One operator per area. Real staffing is unknown."
+        },
+        "firstPassYield": {
+          "kind": "assumption",
+          "id": "A25",
+          "note": "Yield 0.99 per area, per wafer, no rework. Real yields are unknown."
+        },
+        "availability": {
+          "kind": "assumption",
+          "id": "A26",
+          "note": "Availability 0.90. Real tool availability is unknown."
+        },
+        "performance": {
+          "kind": "assumption",
+          "id": "A27",
+          "note": "Pace of 0.95 versus the summed cycle. Real pace is unknown."
+        }
+      }
+    },
+    {
+      "id": "S5",
+      "name": "Wafer test",
+      "cycleTimeSeconds": 240,
+      "parallelUnits": 6,
+      "operators": 1,
+      "firstPassYield": 0.99,
+      "availability": 0.9,
+      "performance": 0.95,
+      "sources": {
+        "name": {
+          "kind": "assumption",
+          "id": "A21",
+          "note": "Six textbook process areas in series. Not a real route or layout."
+        },
+        "cycleTimeSeconds": {
+          "kind": "assumption",
+          "id": "A23",
+          "note": "Summed cycle time per wafer per tool. Invented round number, not measured."
+        },
+        "parallelUnits": {
+          "kind": "assumption",
+          "id": "A24",
+          "note": "Tools per area per bay. Real tool counts are unknown."
+        },
+        "operators": {
+          "kind": "assumption",
+          "id": "A24",
+          "note": "One operator per area. Real staffing is unknown."
+        },
+        "firstPassYield": {
+          "kind": "assumption",
+          "id": "A25",
+          "note": "Yield 0.99 per area, per wafer, no rework. Real yields are unknown."
+        },
+        "availability": {
+          "kind": "assumption",
+          "id": "A26",
+          "note": "Availability 0.90. Real tool availability is unknown."
+        },
+        "performance": {
+          "kind": "assumption",
+          "id": "A27",
+          "note": "Pace of 0.95 versus the summed cycle. Real pace is unknown."
+        }
+      }
+    },
+    {
+      "id": "S6",
+      "name": "Packaging",
+      "cycleTimeSeconds": 180,
+      "parallelUnits": 4,
+      "operators": 1,
+      "firstPassYield": 0.99,
+      "availability": 0.9,
+      "performance": 0.95,
+      "sources": {
+        "name": {
+          "kind": "assumption",
+          "id": "A21",
+          "note": "Six textbook process areas in series. Not a real route or layout."
+        },
+        "cycleTimeSeconds": {
+          "kind": "assumption",
+          "id": "A23",
+          "note": "Summed cycle time per wafer per tool. Invented round number, not measured."
+        },
+        "parallelUnits": {
+          "kind": "assumption",
+          "id": "A24",
+          "note": "Tools per area per bay. Real tool counts are unknown."
+        },
+        "operators": {
+          "kind": "assumption",
+          "id": "A24",
+          "note": "One operator per area. Real staffing is unknown."
+        },
+        "firstPassYield": {
+          "kind": "assumption",
+          "id": "A25",
+          "note": "Yield 0.99 per area, per wafer, no rework. Real yields are unknown."
+        },
+        "availability": {
+          "kind": "assumption",
+          "id": "A26",
+          "note": "Availability 0.90. Real tool availability is unknown."
+        },
+        "performance": {
+          "kind": "assumption",
+          "id": "A27",
+          "note": "Pace of 0.95 versus the summed cycle. Real pace is unknown."
+        }
+      }
+    }
+  ],
+  "shifts": [
+    {
+      "crew": "A",
+      "startClock": "05:00",
+      "endClock": "17:30",
+      "daysNote": "Sunday-Tuesday or Thursday-Saturday, plus every other Wednesday",
+      "scheduledHours": 12,
+      "mealBreakMinutes": 30,
+      "sources": {
+        "crew": {
+          "kind": "assumption",
+          "id": "A1",
+          "note": "The public A/B/C/D pattern is applied to the simulated kit line. Modeling convenience, not a confirmed roster."
+        },
+        "startClock": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "endClock": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "daysNote": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "scheduledHours": {
+          "kind": "assumption",
+          "id": "A2",
+          "note": "12.5 hours elapsed minus an assumed 30 minute unpaid meal leaves 12.0 hours of scheduled production."
+        },
+        "mealBreakMinutes": {
+          "kind": "assumption",
+          "id": "A2",
+          "note": "The 30 minute meal break is assumed, not stated on the posting."
+        }
+      }
+    },
+    {
+      "crew": "B",
+      "startClock": "05:00",
+      "endClock": "17:30",
+      "daysNote": "Sunday-Tuesday or Thursday-Saturday, plus every other Wednesday",
+      "scheduledHours": 12,
+      "mealBreakMinutes": 30,
+      "sources": {
+        "crew": {
+          "kind": "assumption",
+          "id": "A1",
+          "note": "The public A/B/C/D pattern is applied to the simulated kit line. Modeling convenience, not a confirmed roster."
+        },
+        "startClock": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "endClock": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "daysNote": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "scheduledHours": {
+          "kind": "assumption",
+          "id": "A2",
+          "note": "12.5 hours elapsed minus an assumed 30 minute unpaid meal leaves 12.0 hours of scheduled production."
+        },
+        "mealBreakMinutes": {
+          "kind": "assumption",
+          "id": "A2",
+          "note": "The 30 minute meal break is assumed, not stated on the posting."
+        }
+      }
+    },
+    {
+      "crew": "C",
+      "startClock": "17:00",
+      "endClock": "05:30",
+      "daysNote": "Sunday-Tuesday or Thursday-Saturday, plus every other Wednesday",
+      "scheduledHours": 12,
+      "mealBreakMinutes": 30,
+      "sources": {
+        "crew": {
+          "kind": "assumption",
+          "id": "A1",
+          "note": "The public A/B/C/D pattern is applied to the simulated kit line. Modeling convenience, not a confirmed roster."
+        },
+        "startClock": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "endClock": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "daysNote": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "scheduledHours": {
+          "kind": "assumption",
+          "id": "A2",
+          "note": "12.5 hours elapsed minus an assumed 30 minute unpaid meal leaves 12.0 hours of scheduled production."
+        },
+        "mealBreakMinutes": {
+          "kind": "assumption",
+          "id": "A2",
+          "note": "The 30 minute meal break is assumed, not stated on the posting."
+        }
+      }
+    },
+    {
+      "crew": "D",
+      "startClock": "17:00",
+      "endClock": "05:30",
+      "daysNote": "Sunday-Tuesday or Thursday-Saturday, plus every other Wednesday",
+      "scheduledHours": 12,
+      "mealBreakMinutes": 30,
+      "sources": {
+        "crew": {
+          "kind": "assumption",
+          "id": "A1",
+          "note": "The public A/B/C/D pattern is applied to the simulated kit line. Modeling convenience, not a confirmed roster."
+        },
+        "startClock": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "endClock": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "daysNote": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "scheduledHours": {
+          "kind": "assumption",
+          "id": "A2",
+          "note": "12.5 hours elapsed minus an assumed 30 minute unpaid meal leaves 12.0 hours of scheduled production."
+        },
+        "mealBreakMinutes": {
+          "kind": "assumption",
+          "id": "A2",
+          "note": "The 30 minute meal break is assumed, not stated on the posting."
+        }
+      }
+    }
+  ]
+}

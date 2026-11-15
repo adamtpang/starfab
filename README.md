@@ -8,7 +8,31 @@ Live placeholder: [https://starfab.vercel.app](https://starfab.vercel.app)
 
 ## What this repo is today
 
-This first commit holds a dark placeholder page and a written spec. The simulator itself is not built yet. The MVP in [docs/roadmap.md](docs/roadmap.md) is scoped so it can be built in about three hours.
+A static Vite + React + TypeScript app. It runs one simulated shift of a six-station, four-line teaching plant in the browser, with a deterministic, seeded, discrete-time engine (1 second ticks, no buffers, scrap without rework) and an analytical capacity calculator beside it as a cross-reference. The dark dashboard shows shift yield, OEE, WIP, station utilization with the bottleneck highlighted, a downtime Pareto, and what-if levers. Seed numbers live in [data/plant.seed.json](data/plant.seed.json), and every one is sourced or labeled `ASSUMPTION`.
+
+## Run it
+
+```bash
+npm install
+```
+
+```bash
+npm run dev
+```
+
+```bash
+npm test
+```
+
+```bash
+npm run build
+```
+
+The plant is fictional and has three halls that share one simulator. The star hall is the kit line from the original spec. The fab hall is a simplified wafer line with many tools per area and lithography as its bottleneck, described in [docs/fab-hall-model.md](docs/fab-hall-model.md). The assembly hall has two sub-lines that meet at a join station, described in [docs/assembly-hall-model.md](docs/assembly-hall-model.md). Public figures are used only to give each hall a believable scale, and they are listed with dates in [docs/data-sources.md](docs/data-sources.md).
+
+Several things go beyond the original tech spec: the extra halls, a 3D floor twin that replays every simulated unit, a light or dark mode button, loading your own plant from a JSON file (read in the browser, never uploaded), and a rule-based question box that answers by running the simulator. The question box is not an AI model. A buffer size lever gives each gap between stations a finite buffer (the spec default of zero, `A14`, is still the seed value). A ramp test sweeps one lever (line speed, buffer size, availability, or line count) across a range, runs a full seeded shift at each point, and marks where the line starts holding takt. The look is documented in [docs/design-language.md](docs/design-language.md).
+
+There is no backend, no login, and no network call at runtime. `npm run build` writes a static site to `dist/`.
 
 ## Specs
 
@@ -17,6 +41,7 @@ This first commit holds a dark placeholder page and a written spec. The simulato
 - [docs/features.md](docs/features.md): MVP versus later work
 - [docs/data-sources.md](docs/data-sources.md): every public source, with a URL and date
 - [docs/roadmap.md](docs/roadmap.md): the three-hour MVP plan, then later steps
+- [docs/tech-spec.md](docs/tech-spec.md): the engine and UI contract, fixtures F1 to F3, and assumptions A15 to A20
 
 ## Rules
 

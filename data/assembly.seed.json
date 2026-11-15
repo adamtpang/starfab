@@ -1,0 +1,530 @@
+{
+  "name": "starfab assembly hall",
+  "unofficialDisclaimer": "Unofficial fan or learning project, not affiliated with SpaceX.",
+  "annualDemandKits": 2000000,
+  "calendarDays": 365,
+  "hoursPerDay": 24,
+  "parallelLines": 2,
+  "rngSeed": 1,
+  "meanDowntimeEventSeconds": 900,
+  "bufferCapacity": 3,
+  "transferSeconds": 6,
+  "supply": {
+    "kitsPerDelivery": 180,
+    "intervalSeconds": 3600,
+    "stockCapacity": 360,
+    "initialStock": 180
+  },
+  "hall": {
+    "id": "assembly",
+    "label": "Assembly hall",
+    "product": "panel units",
+    "unitNoun": "unit",
+    "unitNounPlural": "units",
+    "blurb": "A fictional assembly hall: a board sub-line and a housing sub-line meet at one join station, then test and pack-out. Material arrives by delivery, and parts take time to travel."
+  },
+  "demandInfo": {
+    "statement": "an invented figure with no public source behind it",
+    "date": "set Nov 14, 2026",
+    "links": [],
+    "assumptionIds": [
+      "A38"
+    ]
+  },
+  "sources": {
+    "annualDemandKits": {
+      "kind": "assumption",
+      "id": "A38",
+      "note": "2,000,000 units a year. Invented, with no public source."
+    },
+    "calendarDays": {
+      "kind": "assumption",
+      "id": "A38",
+      "note": "Demand is spread evenly over 365 days."
+    },
+    "hoursPerDay": {
+      "kind": "assumption",
+      "id": "A3",
+      "note": "Coverage is modeled as 24 hours a day, 365 days a year."
+    },
+    "parallelLines": {
+      "kind": "assumption",
+      "id": "A39",
+      "note": "2 identical lines in parallel."
+    },
+    "rngSeed": {
+      "kind": "assumption",
+      "id": "A16",
+      "note": "RNG seed 1 with mulberry32."
+    },
+    "meanDowntimeEventSeconds": {
+      "kind": "assumption",
+      "id": "A17",
+      "note": "Mean downtime event of 900 seconds, exact budget per machine."
+    },
+    "bufferCapacity": {
+      "kind": "assumption",
+      "id": "A40",
+      "note": "Room for 3 parts after each station."
+    },
+    "joinRule": {
+      "kind": "assumption",
+      "id": "A33",
+      "note": "S3 needs one board and one housing to start a unit. Two parts become one unit."
+    },
+    "tickSeconds": {
+      "kind": "assumption",
+      "id": "A15",
+      "note": "Tick is 1.0 second."
+    },
+    "downtimeReasons": {
+      "kind": "assumption",
+      "id": "A18",
+      "note": "Reasons cycle at 4, 3, 2, 1 per 10 events. Not plant data."
+    },
+    "endOfShiftWip": {
+      "kind": "assumption",
+      "id": "A19",
+      "note": "Parts and units still on the floor at the end of the shift are WIP."
+    },
+    "starts": {
+      "kind": "assumption",
+      "id": "A20",
+      "note": "S1 and S2 each start a part whenever a machine is free."
+    },
+    "transferSeconds": {
+      "kind": "assumption",
+      "id": "A42",
+      "note": "6 seconds to travel between stations. Invented."
+    },
+    "supply": {
+      "kind": "assumption",
+      "id": "A41",
+      "note": "180 material kits per line each hour, room for 360, starting with 180. Invented."
+    }
+  },
+  "stations": [
+    {
+      "id": "S1",
+      "name": "Board build",
+      "cycleTimeSeconds": 28,
+      "parallelUnits": 1,
+      "operators": 1,
+      "firstPassYield": 0.98,
+      "availability": 0.92,
+      "performance": 0.95,
+      "feeds": "S3",
+      "sources": {
+        "name": {
+          "kind": "assumption",
+          "id": "A32",
+          "note": "Five generic stations. Two sub-lines meet at S3. Not a real layout."
+        },
+        "cycleTimeSeconds": {
+          "kind": "assumption",
+          "id": "A34",
+          "note": "Invented cycle time, not measured."
+        },
+        "parallelUnits": {
+          "kind": "assumption",
+          "id": "A35",
+          "note": "Machines per station per line. Real counts are unknown."
+        },
+        "operators": {
+          "kind": "assumption",
+          "id": "A35",
+          "note": "One operator per station. Real staffing is unknown."
+        },
+        "firstPassYield": {
+          "kind": "assumption",
+          "id": "A36",
+          "note": "Yield 0.98 at each station, no rework."
+        },
+        "availability": {
+          "kind": "assumption",
+          "id": "A37",
+          "note": "Availability 0.92 at each station."
+        },
+        "performance": {
+          "kind": "assumption",
+          "id": "A37",
+          "note": "Pace of 0.95 versus the engineered cycle."
+        }
+      }
+    },
+    {
+      "id": "S2",
+      "name": "Housing mold",
+      "cycleTimeSeconds": 22,
+      "parallelUnits": 1,
+      "operators": 1,
+      "firstPassYield": 0.98,
+      "availability": 0.92,
+      "performance": 0.95,
+      "sources": {
+        "name": {
+          "kind": "assumption",
+          "id": "A32",
+          "note": "Five generic stations. Two sub-lines meet at S3. Not a real layout."
+        },
+        "cycleTimeSeconds": {
+          "kind": "assumption",
+          "id": "A34",
+          "note": "Invented cycle time, not measured."
+        },
+        "parallelUnits": {
+          "kind": "assumption",
+          "id": "A35",
+          "note": "Machines per station per line. Real counts are unknown."
+        },
+        "operators": {
+          "kind": "assumption",
+          "id": "A35",
+          "note": "One operator per station. Real staffing is unknown."
+        },
+        "firstPassYield": {
+          "kind": "assumption",
+          "id": "A36",
+          "note": "Yield 0.98 at each station, no rework."
+        },
+        "availability": {
+          "kind": "assumption",
+          "id": "A37",
+          "note": "Availability 0.92 at each station."
+        },
+        "performance": {
+          "kind": "assumption",
+          "id": "A37",
+          "note": "Pace of 0.95 versus the engineered cycle."
+        }
+      }
+    },
+    {
+      "id": "S3",
+      "name": "Join and fasten",
+      "cycleTimeSeconds": 26,
+      "parallelUnits": 1,
+      "operators": 1,
+      "firstPassYield": 0.98,
+      "availability": 0.92,
+      "performance": 0.95,
+      "sources": {
+        "name": {
+          "kind": "assumption",
+          "id": "A32",
+          "note": "Five generic stations. Two sub-lines meet at S3. Not a real layout."
+        },
+        "cycleTimeSeconds": {
+          "kind": "assumption",
+          "id": "A34",
+          "note": "Invented cycle time, not measured."
+        },
+        "parallelUnits": {
+          "kind": "assumption",
+          "id": "A35",
+          "note": "Machines per station per line. Real counts are unknown."
+        },
+        "operators": {
+          "kind": "assumption",
+          "id": "A35",
+          "note": "One operator per station. Real staffing is unknown."
+        },
+        "firstPassYield": {
+          "kind": "assumption",
+          "id": "A36",
+          "note": "Yield 0.98 at each station, no rework."
+        },
+        "availability": {
+          "kind": "assumption",
+          "id": "A37",
+          "note": "Availability 0.92 at each station."
+        },
+        "performance": {
+          "kind": "assumption",
+          "id": "A37",
+          "note": "Pace of 0.95 versus the engineered cycle."
+        }
+      }
+    },
+    {
+      "id": "S4",
+      "name": "Test",
+      "cycleTimeSeconds": 50,
+      "parallelUnits": 2,
+      "operators": 1,
+      "firstPassYield": 0.98,
+      "availability": 0.92,
+      "performance": 0.95,
+      "sources": {
+        "name": {
+          "kind": "assumption",
+          "id": "A32",
+          "note": "Five generic stations. Two sub-lines meet at S3. Not a real layout."
+        },
+        "cycleTimeSeconds": {
+          "kind": "assumption",
+          "id": "A34",
+          "note": "Invented cycle time, not measured."
+        },
+        "parallelUnits": {
+          "kind": "assumption",
+          "id": "A35",
+          "note": "Machines per station per line. Real counts are unknown."
+        },
+        "operators": {
+          "kind": "assumption",
+          "id": "A35",
+          "note": "One operator per station. Real staffing is unknown."
+        },
+        "firstPassYield": {
+          "kind": "assumption",
+          "id": "A36",
+          "note": "Yield 0.98 at each station, no rework."
+        },
+        "availability": {
+          "kind": "assumption",
+          "id": "A37",
+          "note": "Availability 0.92 at each station."
+        },
+        "performance": {
+          "kind": "assumption",
+          "id": "A37",
+          "note": "Pace of 0.95 versus the engineered cycle."
+        }
+      }
+    },
+    {
+      "id": "S5",
+      "name": "Pack-out",
+      "cycleTimeSeconds": 20,
+      "parallelUnits": 1,
+      "operators": 1,
+      "firstPassYield": 0.98,
+      "availability": 0.92,
+      "performance": 0.95,
+      "sources": {
+        "name": {
+          "kind": "assumption",
+          "id": "A32",
+          "note": "Five generic stations. Two sub-lines meet at S3. Not a real layout."
+        },
+        "cycleTimeSeconds": {
+          "kind": "assumption",
+          "id": "A34",
+          "note": "Invented cycle time, not measured."
+        },
+        "parallelUnits": {
+          "kind": "assumption",
+          "id": "A35",
+          "note": "Machines per station per line. Real counts are unknown."
+        },
+        "operators": {
+          "kind": "assumption",
+          "id": "A35",
+          "note": "One operator per station. Real staffing is unknown."
+        },
+        "firstPassYield": {
+          "kind": "assumption",
+          "id": "A36",
+          "note": "Yield 0.98 at each station, no rework."
+        },
+        "availability": {
+          "kind": "assumption",
+          "id": "A37",
+          "note": "Availability 0.92 at each station."
+        },
+        "performance": {
+          "kind": "assumption",
+          "id": "A37",
+          "note": "Pace of 0.95 versus the engineered cycle."
+        }
+      }
+    }
+  ],
+  "shifts": [
+    {
+      "crew": "A",
+      "startClock": "05:00",
+      "endClock": "17:30",
+      "daysNote": "Sunday-Tuesday or Thursday-Saturday, plus every other Wednesday",
+      "scheduledHours": 12,
+      "mealBreakMinutes": 30,
+      "sources": {
+        "crew": {
+          "kind": "assumption",
+          "id": "A1",
+          "note": "The public A/B/C/D pattern is applied to the simulated kit line. Modeling convenience, not a confirmed roster."
+        },
+        "startClock": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "endClock": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "daysNote": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "scheduledHours": {
+          "kind": "assumption",
+          "id": "A2",
+          "note": "12.5 hours elapsed minus an assumed 30 minute unpaid meal leaves 12.0 hours of scheduled production."
+        },
+        "mealBreakMinutes": {
+          "kind": "assumption",
+          "id": "A2",
+          "note": "The 30 minute meal break is assumed, not stated on the posting."
+        }
+      }
+    },
+    {
+      "crew": "B",
+      "startClock": "05:00",
+      "endClock": "17:30",
+      "daysNote": "Sunday-Tuesday or Thursday-Saturday, plus every other Wednesday",
+      "scheduledHours": 12,
+      "mealBreakMinutes": 30,
+      "sources": {
+        "crew": {
+          "kind": "assumption",
+          "id": "A1",
+          "note": "The public A/B/C/D pattern is applied to the simulated kit line. Modeling convenience, not a confirmed roster."
+        },
+        "startClock": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "endClock": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "daysNote": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "scheduledHours": {
+          "kind": "assumption",
+          "id": "A2",
+          "note": "12.5 hours elapsed minus an assumed 30 minute unpaid meal leaves 12.0 hours of scheduled production."
+        },
+        "mealBreakMinutes": {
+          "kind": "assumption",
+          "id": "A2",
+          "note": "The 30 minute meal break is assumed, not stated on the posting."
+        }
+      }
+    },
+    {
+      "crew": "C",
+      "startClock": "17:00",
+      "endClock": "05:30",
+      "daysNote": "Sunday-Tuesday or Thursday-Saturday, plus every other Wednesday",
+      "scheduledHours": 12,
+      "mealBreakMinutes": 30,
+      "sources": {
+        "crew": {
+          "kind": "assumption",
+          "id": "A1",
+          "note": "The public A/B/C/D pattern is applied to the simulated kit line. Modeling convenience, not a confirmed roster."
+        },
+        "startClock": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "endClock": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "daysNote": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "scheduledHours": {
+          "kind": "assumption",
+          "id": "A2",
+          "note": "12.5 hours elapsed minus an assumed 30 minute unpaid meal leaves 12.0 hours of scheduled production."
+        },
+        "mealBreakMinutes": {
+          "kind": "assumption",
+          "id": "A2",
+          "note": "The 30 minute meal break is assumed, not stated on the posting."
+        }
+      }
+    },
+    {
+      "crew": "D",
+      "startClock": "17:00",
+      "endClock": "05:30",
+      "daysNote": "Sunday-Tuesday or Thursday-Saturday, plus every other Wednesday",
+      "scheduledHours": 12,
+      "mealBreakMinutes": 30,
+      "sources": {
+        "crew": {
+          "kind": "assumption",
+          "id": "A1",
+          "note": "The public A/B/C/D pattern is applied to the simulated kit line. Modeling convenience, not a confirmed roster."
+        },
+        "startClock": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "endClock": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "daysNote": {
+          "kind": "public",
+          "title": "Starlink Production Associate, job 8697970002 (SpaceX Greenhouse board)",
+          "url": "https://boards.greenhouse.io/spacex/jobs/8697970002?gh_jid=8697970002",
+          "date": "First posted Aug 11, 2026; confirmed listed Nov 14, 2026",
+          "excerpt": "A/B shifts 5:00 AM to 5:30 PM Sunday-Tuesday or Thursday-Saturday plus every other Wednesday; C/D shifts the same days, 5:00 PM to 5:30 AM"
+        },
+        "scheduledHours": {
+          "kind": "assumption",
+          "id": "A2",
+          "note": "12.5 hours elapsed minus an assumed 30 minute unpaid meal leaves 12.0 hours of scheduled production."
+        },
+        "mealBreakMinutes": {
+          "kind": "assumption",
+          "id": "A2",
+          "note": "The 30 minute meal break is assumed, not stated on the posting."
+        }
+      }
+    }
+  ]
+}
