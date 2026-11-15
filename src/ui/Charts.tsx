@@ -1,3 +1,4 @@
+import { flowTopology } from "../engine/topology";
 import { fmtInt, fmtPct } from "../lib/format";
 import type { MachineState, Plant, ShiftPattern, SimResult } from "../types";
 
@@ -19,14 +20,22 @@ export function LineElevation({ plant, sim }: { plant: Plant; sim: SimResult }) 
     const h = 10 + Math.max(0, Math.min(1, u)) * 150;
     return { s, u, x, h, top: base - h, hold: s.id === sim.bottleneckStationId };
   });
-  const centerline =
-    `M8,${blocks[0].top + 4} L` +
-    blocks.map((b) => `${b.x + 42},${b.top}`).join(" L") +
-    ` L712,${blocks[blocks.length - 1].top + 6}`;
+  // One centerline segment from each station to the station it feeds.
+  const { next } = flowTopology(plant.stations);
+  const flows = blocks.flatMap((b, i) => {
+    const target = blocks[next[i]];
+    return target ? [`M${b.x + 42},${b.top} L${target.x + 42},${target.top}`] : [];
+  });
+  const lastBlock = blocks[blocks.length - 1];
+  const centerline = [
+    `M8,${blocks[0].top + 4} L${blocks[0].x + 42},${blocks[0].top}`,
+    ...flows,
+    `M${lastBlock.x + 42},${lastBlock.top} L712,${lastBlock.top + 6}`,
+  ].join(" ");
 
   return (
     <svg
-      viewBox="0 0 720 348"
+      viewBox="0 0 720 362"
       role="img"
       aria-label={`Line elevation. ${blocks
         .map((b) => `${b.s.id} ${b.s.name} ${fmtPct(b.u)} busy${b.hold ? ", bottleneck" : ""}`)
@@ -76,7 +85,12 @@ export function LineElevation({ plant, sim }: { plant: Plant; sim: SimResult }) 
             </text>
             {/* One word per line, so long names never run into the next block. */}
             <text className="g-label" x={x} y={base + 36}>
-              {[b.s.id, ...b.s.name.toUpperCase().split(" "), ...(b.hold ? ["BOTTLENECK"] : [])].map(
+              {[
+                b.s.id,
+                ...b.s.name.toUpperCase().split(" "),
+                ...(b.s.feeds ? [`FEEDS ${b.s.feeds}`] : []),
+                ...(b.hold ? ["BOTTLENECK"] : []),
+              ].map(
                 (word, k) => (
                   <tspan key={k} x={x} dy={k === 0 ? 0 : 14}>
                     {word}

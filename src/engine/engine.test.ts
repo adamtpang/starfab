@@ -3,13 +3,14 @@
 
 import { describe, expect, it } from "vitest";
 import { applyLevers, sanitizeLevers } from "../applyLevers";
-import { FAB_PLANT, SEED_PLANT } from "../plant";
+import { ASSEMBLY_PLANT, FAB_PLANT, SEED_PLANT } from "../plant";
 import { runRamp } from "../ramp";
 import type { Plant, Station, StationId } from "../types";
 import { eventDurations, placeMachineEvents } from "./downtime";
 import { computeClosedForm } from "./formulas";
 import { mulberry32 } from "./rng";
 import { simulateShift } from "./simulate";
+import { flowTopology } from "./topology";
 
 const IDS: StationId[] = ["S1", "S2", "S3", "S4", "S5", "S6"];
 
@@ -350,6 +351,107 @@ describe("fab hall (fictional)", () => {
       const budget = Math.round(0.1 * 43200) * 2 * s.parallelUnits;
       expect(r.stationStats[s.id].downtimeSeconds).toBe(budget);
     });
+  });
+});
+
+// Two streams meet at one station. S1 (10 s) and S2 (20 s) both feed S3
+// (10 s). One line, 60 ticks, no buffers, no downtime, every part good.
+function joinPlant(): Plant {
+  const plant = tinyPlant();
+  const s3: Station = { ...plant.stations[1], id: "S3", name: "Join" };
+  plant.stations[0].feeds = "S3";
+  plant.stations[1].cycleTimeSeconds = 20;
+  plant.stations.push(s3);
+  return plant;
+}
+
+describe("joins: two streams meeting at one station", () => {
+  it("reads the topology from feeds, with a straight line as the default", () => {
+    expect(flowTopology(SEED_PLANT.stations).next).toEqual([1, 2, 3, 4, 5, -1]);
+    expect(flowTopology(SEED_PLANT.stations).sources).toEqual([0]);
+    const t = flowTopology(joinPlant().stations);
+    expect(t.next).toEqual([2, 2, -1]);
+    expect(t.inputs).toEqual([[], [], [0, 1]]);
+    expect(t.sources).toEqual([0, 1]);
+  });
+
+  it("matches the hand-traced join fixture exactly", () => {
+    const r = simulateShift(joinPlant(), { yieldMode: "scripted" });
+    // S1 finishes at the end of ticks 9, 29, 49 and then waits for S2.
+    // S2 finishes at 19, 39, 59. Each time, S3 takes one part from each and
+    // works the next 10 ticks, so it finishes at 29 and 49. The third unit
+    // starts on S3 at the very end of the shift and is WIP.
+    expect(r.unitsStarted).toBe(6); // three parts on each stream
+    expect(r.stationStats.S1.outflowGood).toBe(3);
+    expect(r.stationStats.S2.outflowGood).toBe(3);
+    expect(r.unitsMerged).toBe(3); // three joins, one part absorbed each
+    expect(r.unitsGood).toBe(2);
+    expect(r.unitsCompleted).toBe(2);
+    expect(r.unitsScrap).toBe(0);
+    expect(r.wipEnd).toBe(1);
+    expect(r.stationStats.S1.busySeconds).toBe(30);
+    expect(r.stationStats.S1.blockedSeconds).toBe(27); // waits 9 ticks, three times
+    expect(r.stationStats.S1.idleSeconds).toBe(3);
+    expect(r.stationStats.S2.busySeconds).toBe(60);
+    expect(r.stationStats.S3.busySeconds).toBe(20);
+    expect(r.unitsGood + r.unitsScrap + r.wipEnd + r.unitsMerged).toBe(r.unitsStarted);
+  });
+
+  it("stops the join when one stream scraps its part", () => {
+    const r = simulateShift(joinPlant(), {
+      yieldMode: "scripted",
+      scriptedYield: (stationId) => stationId !== "S2",
+    });
+    expect(r.stationStats.S2.scrap).toBe(3);
+    expect(r.unitsMerged).toBe(0);
+    expect(r.unitsGood).toBe(0);
+    expect(r.unitsGood + r.unitsScrap + r.wipEnd + r.unitsMerged).toBe(r.unitsStarted);
+  });
+
+  it("lets a buffer hold the faster stream's parts", () => {
+    const r = simulateShift({ ...joinPlant(), bufferCapacity: 2 }, { yieldMode: "scripted" });
+    // S1 can now make parts at 9, 19, 29, 39, 49, 59 until its buffer fills.
+    expect(r.stationStats.S1.outflowGood).toBeGreaterThan(3);
+    expect(r.unitsGood).toBe(2); // still paced by S2
+    expect(r.unitsGood + r.unitsScrap + r.wipEnd + r.unitsMerged).toBe(r.unitsStarted);
+  });
+
+  it("uses the slowest stream in the rate model", () => {
+    const c = computeClosedForm(joinPlant());
+    const hours = 60 / 3600;
+    expect(c.unitsStarted).toBeCloseTo((360 + 180) * hours, 8); // both streams at capacity
+    expect(c.unitsGood).toBeCloseTo(180 * hours, 8); // paced by S2 at 180 an hour
+    expect(c.bottleneckStationId).toBe("S2");
+  });
+});
+
+describe("assembly hall (fictional)", () => {
+  const closed = computeClosedForm(ASSEMBLY_PLANT);
+  const r = simulateShift(ASSEMBLY_PLANT);
+
+  it("has two sub-lines meeting at S3 and a source on every number", () => {
+    const t = flowTopology(ASSEMBLY_PLANT.stations);
+    expect(t.inputs[2]).toEqual([0, 1]);
+    expect(t.sources).toEqual([0, 1]);
+    for (const s of ASSEMBLY_PLANT.stations) {
+      for (const [key, value] of Object.entries(s)) {
+        if (typeof value === "number") expect(s.sources[key]).toBeDefined();
+      }
+    }
+  });
+
+  it("conserves parts and units, counting what joins absorbed", () => {
+    expect(r.unitsMerged).toBeGreaterThan(0);
+    expect(r.unitsGood + r.unitsScrap + r.wipEnd + r.unitsMerged).toBe(r.unitsStarted);
+    expect(r.wipEnd).toBeGreaterThanOrEqual(0);
+  });
+
+  it("is behind takt, paced by the board sub-line, and at or below the rate model", () => {
+    expect(closed.bottleneckStationId).toBe("S1");
+    expect(r.aheadOrBehind).toBeLessThan(0);
+    expect(r.unitsGood).toBeGreaterThan(0);
+    expect(r.unitsGood).toBeLessThanOrEqual(closed.unitsGood);
+    expect(simulateShift(ASSEMBLY_PLANT).unitsGood).toBe(r.unitsGood);
   });
 });
 

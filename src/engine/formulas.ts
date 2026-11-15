@@ -3,6 +3,7 @@
 // that sits beside the discrete-time simulator.
 
 import type { ClosedFormResult, CrewId, Plant, Station, StationId } from "../types";
+import { flowTopology } from "./topology";
 
 export function scheduledHoursFor(plant: Plant, crew?: CrewId): number {
   const shift = plant.shifts.find((s) => s.crew === crew) ?? plant.shifts[0];
@@ -45,27 +46,30 @@ export function computeClosedForm(plant: Plant, crew?: CrewId): ClosedFormResult
   const teSeconds = {} as Record<StationId, number>;
   const stationOutflowGoodPerHour = {} as Record<StationId, number>;
 
-  let inflow = 0;
+  // Forward pass in list order. A station with nothing feeding it runs at
+  // its own capacity. A join can only build as fast as its slowest stream.
+  const { inputs, sources } = flowTopology(plant.stations);
+  const out: number[] = [];
   let startRatePerHour = 0;
   let inflowToLast = 0;
+  let mergedPerHour = 0;
   let rty = 1;
 
   plant.stations.forEach((s, i) => {
     const te = effectiveProcessSeconds(s);
     const cap = (P * 3600) / te;
-    if (i === 0) {
-      inflow = cap;
-      startRatePerHour = cap;
-    }
+    const inflow = sources.includes(i) ? cap : Math.min(...inputs[i].map((a) => out[a]));
+    if (sources.includes(i)) startRatePerHour += inflow;
     if (i === plant.stations.length - 1) inflowToLast = inflow;
-    const out = Math.min(inflow, cap) * s.firstPassYield;
+    const processed = Math.min(inflow, cap);
+    mergedPerHour += processed * (inputs[i].length > 1 ? inputs[i].length - 1 : 0);
+    out[i] = processed * s.firstPassYield;
     teSeconds[s.id] = te;
-    stationOutflowGoodPerHour[s.id] = out;
+    stationOutflowGoodPerHour[s.id] = out[i];
     rty *= s.firstPassYield;
-    inflow = out;
   });
 
-  const goodPerHour = inflow;
+  const goodPerHour = out[out.length - 1] ?? 0;
   const constraint = plant.stations[findConstraintIndex(plant.stations)];
   const unitsStarted = startRatePerHour * H;
   const unitsGood = goodPerHour * H;
@@ -78,7 +82,9 @@ export function computeClosedForm(plant: Plant, crew?: CrewId): ClosedFormResult
     unitsStarted,
     unitsCompleted: inflowToLast * H,
     unitsGood,
-    unitsScrap: unitsStarted - unitsGood,
+    // Everything started that did not end as a good unit or get absorbed at
+    // a join. In a straight line this is the spec rule, started minus good.
+    unitsScrap: unitsStarted - unitsGood - mergedPerHour * H,
     rty,
     lineTaktSeconds: 3600 / (D / P),
     plantDemandPerHour: D,

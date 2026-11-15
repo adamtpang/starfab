@@ -28,7 +28,7 @@ npm test
 npm run build
 ```
 
-The plant is fictional and has two halls that share one simulator. The star hall is the kit line from the original spec. The fab hall is a simplified wafer line with many tools per area and lithography as its bottleneck, described in [docs/fab-hall-model.md](docs/fab-hall-model.md). Public figures are used only to give each hall a believable scale, and they are listed with dates in [docs/data-sources.md](docs/data-sources.md).
+The plant is fictional and has three halls that share one simulator. The star hall is the kit line from the original spec. The fab hall is a simplified wafer line with many tools per area and lithography as its bottleneck, described in [docs/fab-hall-model.md](docs/fab-hall-model.md). The assembly hall has two sub-lines that meet at a join station, described in [docs/assembly-hall-model.md](docs/assembly-hall-model.md). Public figures are used only to give each hall a believable scale, and they are listed with dates in [docs/data-sources.md](docs/data-sources.md).
 
 Several things go beyond the original tech spec: the fab hall, a 3D floor twin with time-lapse playback, and a light or dark mode button. A buffer size lever gives each gap between stations a finite buffer (the spec default of zero, `A14`, is still the seed value). A ramp test sweeps one lever (line speed, buffer size, availability, or line count) across a range, runs a full seeded shift at each point, and marks where the line starts holding takt. The look is documented in [docs/design-language.md](docs/design-language.md).
 

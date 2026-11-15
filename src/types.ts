@@ -24,6 +24,7 @@ export interface Station {
   firstPassYield: number; // A11, 0 to 1
   availability: number; // A12, 0 to 1
   performance: number; // A13, 0 to 1
+  feeds?: StationId; // station this one feeds, default: the next in the list
   sources: Record<string, Source>;
 }
 
@@ -143,6 +144,7 @@ export interface SimResult {
   unitsScrap: number;
   wipEnd: number;
   wipAverage: number;
+  unitsMerged: number; // parts absorbed at joins, 0 in a straight line
   rtyTheoretical: number;
   yieldObserved: number; // unitsGood / unitsCompleted, or 0 if none completed
   yieldFromStarts: number; // unitsGood / unitsStarted, or 0 if none started

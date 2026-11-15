@@ -176,8 +176,8 @@ export function Dashboard({
           <LineElevation plant={plant} sim={sim} />
           <p className="fine">
             The bottleneck is the station with the lowest stand-alone good-unit rate (capacity
-            times yield), upstream station on a tie. With identical stations that is S1. Six
-            generic stations in series <Assumption id={stationSourceId(plant, "name", "A8")} />.
+            times yield), upstream station on a tie. {plant.stations.length} generic stations,
+            each feeding the next unless marked <Assumption id={stationSourceId(plant, "name", "A8")} />.
           </p>
         </Detail>
 
@@ -286,6 +286,13 @@ export function Dashboard({
               tag={derived}
             />
             <Figure label="Average WIP" value={fmtNum(sim.wipAverage, 1)} tag={<ModelOutput />} />
+            {sim.unitsMerged > 0 && (
+              <Figure
+                label="Parts absorbed at joins"
+                value={fmtInt(sim.unitsMerged)}
+                tag={<ModelOutput />}
+              />
+            )}
             <Figure
               label="Analytical good units"
               value={fmtInt(a.unitsGood)}
@@ -308,13 +315,18 @@ export function Dashboard({
             {plant.annualDemandKits === seed.annualDemandKits
               ? `, ${info?.statement ?? "a seed value"} (${info?.date ?? "no date"}): `
               : `, a what-if value. The seed figure is ${fmtInt(seed.annualDemandKits)}, ${info?.statement ?? ""} (${info?.date ?? "no date"}): `}
-            {info?.links.map((c, i) => (
-              <span key={c.url}>
-                {i > 0 && ", "}
-                <a href={c.url}>{c.title}</a>
-              </span>
-            ))}
-            . This hall is fictional, and using a public figure as its demand is{" "}
+            {info && info.links.length > 0
+              ? info.links.map((c, i) => (
+                  <span key={c.url}>
+                    {i > 0 && ", "}
+                    <a href={c.url}>{c.title}</a>
+                  </span>
+                ))
+              : "no public source"}
+            . This hall is fictional
+            {info && info.links.length > 0
+              ? ", and using a public figure as its demand is "
+              : ", and its demand figure is "}
             {info?.assumptionIds.map((id) => (
               <span key={id}>
                 <Assumption id={id} />{" "}

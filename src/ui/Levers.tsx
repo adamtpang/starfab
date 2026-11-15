@@ -132,7 +132,13 @@ export function Levers({
       <Row
         id="lever-annualDemandKits"
         label={`Annual demand, ${units}`}
-        tag={<Sourced>public figure plus {seed.demandInfo?.assumptionIds[0] ?? "A4"}</Sourced>}
+        tag={
+          seed.demandInfo && seed.demandInfo.links.length > 0 ? (
+            <Sourced>public figure plus {seed.demandInfo.assumptionIds[0] ?? "A4"}</Sourced>
+          ) : (
+            <Assumption id={seed.demandInfo?.assumptionIds[0] ?? "A4"} />
+          )
+        }
         hint="Changes takt and planned units only. Capacity does not move."
       >
         {number("annualDemandKits", 10000, L.annualDemandKits.min)}

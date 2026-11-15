@@ -195,14 +195,20 @@ export default function App() {
           <p>
             Both halls are fictional. Public figures are used only to give each hall a believable
             scale. In the {seed.hall?.label.toLowerCase() ?? "hall"}, takt and planned units are{" "}
-            {seed.demandInfo?.statement} ({seed.demandInfo?.date}). Sources:{" "}
-            {seed.demandInfo?.links.map((c, i) => (
-              <span key={c.url}>
-                {i > 0 && ", "}
-                <a href={c.url}>{c.title}</a>
-              </span>
-            ))}
-            .
+            {seed.demandInfo?.statement} ({seed.demandInfo?.date}).
+            {seed.demandInfo && seed.demandInfo.links.length > 0 && (
+              <>
+                {" "}
+                Sources:{" "}
+                {seed.demandInfo.links.map((c, i) => (
+                  <span key={c.url}>
+                    {i > 0 && ", "}
+                    <a href={c.url}>{c.title}</a>
+                  </span>
+                ))}
+                .
+              </>
+            )}
           </p>
           <p className="footer-links">
             <a href={DOCS_URL}>Specs and assumptions (docs)</a>

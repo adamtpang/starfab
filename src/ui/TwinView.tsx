@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { flowTopology } from "../engine/topology";
 import { fmtInt } from "../lib/format";
 import type { MachineState, Plant, ShiftPattern, SimResult } from "../types";
 
@@ -58,9 +59,11 @@ interface MachineRef {
   station: number;
   edges: THREE.LineBasicMaterial;
   fill: THREE.MeshBasicMaterial | THREE.MeshLambertMaterial;
-  kit: THREE.Mesh | null; // kit travelling to the next station
+  kit: THREE.Mesh | null; // kit travelling to the station this one feeds
   x: number;
   z: number;
+  toX: number;
+  toZ: number;
 }
 
 // A few primitives per station, so each one reads as a different kind of
@@ -163,7 +166,7 @@ export default function TwinView({
 
   const lines = plant.parallelLines;
   const stationCount = plant.stations.length;
-  const stationKey = plant.stations.map((s) => `${s.id}:${s.name}`).join("|");
+  const stationKey = plant.stations.map((s) => `${s.id}:${s.name}:${s.feeds ?? ""}`).join("|");
   const totalMinutes = sim.flowByMinute.good.length;
 
   // Running totals at each minute, for the counters.
@@ -207,8 +210,25 @@ export default function TwinView({
     controls.maxZoom = 4;
     controls.zoomToCursor = true;
 
-    const floorW = stationCount * DX + 5;
-    const floorD = lines * DZ + 4.5;
+    // Lay stations out by how far they are from the exit. Stations at the
+    // same distance (two sub-lines feeding one join) share a column and sit
+    // side by side across the line.
+    const topology = flowTopology(plant.stations);
+    const depth: number[] = new Array(stationCount).fill(0);
+    for (let i = stationCount - 2; i >= 0; i--) depth[i] = depth[topology.next[i]] + 1;
+    const columns = Math.max(...depth) + 1;
+    const column = depth.map((d) => columns - 1 - d);
+    const rowsInColumn = (c: number) => column.filter((x) => x === c).length;
+    const maxRows = Math.max(...column.map(rowsInColumn));
+    const ROW = 2.9;
+    const lineDepth = DZ + (maxRows - 1) * ROW;
+    const rowOffset = (i: number) => {
+      const peers = column.flatMap((c, k) => (c === column[i] ? [k] : []));
+      return (peers.indexOf(i) - (peers.length - 1) / 2) * ROW;
+    };
+
+    const floorW = columns * DX + 5;
+    const floorD = lines * lineDepth + 4.5;
     const viewWidth = (floorW + floorD) * 0.74 + 2;
 
     const resetView = () => {
@@ -252,39 +272,57 @@ export default function TwinView({
     const kitGeometry = track(new THREE.BoxGeometry(0.42, 0.3, 0.42));
 
     const machines: MachineRef[] = [];
-    const stationX = (i: number) => (i - (stationCount - 1) / 2) * DX;
-    const lineZ = (l: number) => (l - (lines - 1) / 2) * DZ;
+    const stationX = (i: number) => (column[i] - (columns - 1) / 2) * DX;
+    const lineZ = (l: number) => (l - (lines - 1) / 2) * lineDepth;
+    const RAIL = 1.55; // the conveyor runs just in front of each station
 
     for (let l = 0; l < lines; l++) {
-      const z = lineZ(l);
-      // Conveyor rail under the whole line.
-      outlined([stationCount * DX - 1.2, 0.12, 0.5], [0, 0.06, z + 1.55], railFill, railEdge, scene);
       for (let i = 0; i < stationCount; i++) {
         const x = stationX(i);
+        const z = lineZ(l) + rowOffset(i);
         const edges = track(new THREE.LineBasicMaterial({ color: C.edge.idle }));
         const bodyFill = track(solid(C.body.idle));
         const group = new THREE.Group();
         group.position.set(x, 0, z - 0.3);
         for (const part of stationParts(i)) outlined(part.size, part.at, bodyFill, edges, group);
         scene.add(group);
+
         let kit: THREE.Mesh | null = null;
-        if (i < stationCount - 1) {
+        let toX = x;
+        let toZ = z;
+        const target = topology.next[i];
+        if (target >= 0) {
+          toX = stationX(target);
+          toZ = lineZ(l) + rowOffset(target);
+          // Conveyor from this station to the one it feeds.
+          const dx = toX - x;
+          const dz = toZ - z;
+          const rail = outlined(
+            [Math.hypot(dx, dz), 0.12, 0.5],
+            [(x + toX) / 2, 0.06, (z + toZ) / 2 + RAIL],
+            railFill,
+            railEdge,
+            scene,
+          );
+          rail.rotation.y = -Math.atan2(dz, dx);
           kit = new THREE.Mesh(kitGeometry, kitFill);
-          kit.position.set(x, 0.3, z + 1.55);
+          kit.position.set(x, 0.3, z + RAIL);
           kit.visible = false;
           scene.add(kit);
         }
-        machines.push({ line: l, station: i, edges, fill: bodyFill, kit, x, z });
+        machines.push({ line: l, station: i, edges, fill: bodyFill, kit, x, z, toX, toZ });
       }
       const label = floorLabel(`LINE ${l + 1}`, 3.2, C.labelDim);
-      label.position.set(-floorW / 2 + 2.0, 0.02, z + 2.25);
+      label.position.set(-floorW / 2 + 2.0, 0.02, lineZ(l) + lineDepth / 2 - 0.1);
       scene.add(label);
       disposables.push((label.material as THREE.MeshBasicMaterial).map as THREE.Texture);
       disposables.push(label.material as THREE.Material, label.geometry);
     }
     plant.stations.forEach((s, i) => {
+      const peers = column.flatMap((c, k) => (c === column[i] ? [k] : []));
       const label = floorLabel(`${s.id} ${s.name.toUpperCase()}`, 4.4, C.label);
-      label.position.set(stationX(i) + 0.2, 0.02, floorD / 2 - 0.7);
+      // Stations that share a column stack their labels.
+      label.position.set(stationX(i) + 0.2, 0.02, floorD / 2 - 0.7 - 0.6 * (peers.length - 1 - peers.indexOf(i)));
       scene.add(label);
       disposables.push((label.material as THREE.MeshBasicMaterial).map as THREE.Texture);
       disposables.push(label.material as THREE.Material, label.geometry);
@@ -340,7 +378,8 @@ export default function TwinView({
         m.fill.color.setHex(C.body[state]);
         if (m.kit) {
           m.kit.visible = state === "busy";
-          m.kit.position.x = m.x + phase * DX;
+          m.kit.position.x = m.x + phase * (m.toX - m.x);
+          m.kit.position.z = m.z + phase * (m.toZ - m.z) + 1.55;
         }
       }
 
