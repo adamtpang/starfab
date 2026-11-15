@@ -102,9 +102,17 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
   // state record for line 1 only, so the dashboard can draw a state timeline.
   const goodByHour: number[] = new Array(Math.ceil(scheduledSeconds / 3600)).fill(0);
   const bins = Math.ceil(scheduledSeconds / TIMELINE_BIN_SECONDS);
-  const stateCounts = stations.map(() => new Uint16Array(bins * 4));
+  const stateCounts = Array.from({ length: P }, () =>
+    stations.map(() => new Uint16Array(bins * 4)),
+  );
   const record = (line: number, i: number, t: number, state: number) => {
-    if (line === 0) stateCounts[i][Math.floor(t / TIMELINE_BIN_SECONDS) * 4 + state]++;
+    stateCounts[line][i][Math.floor(t / TIMELINE_BIN_SECONDS) * 4 + state]++;
+  };
+  // Units started, finished good, and scrapped in each minute, all lines.
+  const flowByMinute = {
+    started: new Array<number>(bins).fill(0),
+    good: new Array<number>(bins).fill(0),
+    scrap: new Array<number>(bins).fill(0),
   };
 
   for (let line = 0; line < P; line++) {
@@ -178,6 +186,7 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
           first[u].finished = false;
           first[u].remaining = processSeconds[0];
           lineStarted++;
+          flowByMinute.started[Math.floor(t / TIMELINE_BIN_SECONDS)]++;
         }
       }
 
@@ -208,6 +217,7 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
               if (!good) {
                 tally.scrap++;
                 unitsScrap++;
+                flowByMinute.scrap[Math.floor(t / TIMELINE_BIN_SECONDS)]++;
                 lineLeft++;
                 m.hasUnit = false;
               } else {
@@ -215,6 +225,7 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
                 if (i === lastIndex) {
                   unitsGood++;
                   goodByHour[Math.floor(t / 3600)]++;
+                  flowByMinute.good[Math.floor(t / TIMELINE_BIN_SECONDS)]++;
                   lineLeft++;
                   m.hasUnit = false;
                 } else if (!tryTransfer(i, m, t)) {
@@ -291,6 +302,17 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
       totalDowntime > 0 ? downtimeByReason[reason].seconds / totalDowntime : 0;
   }
 
+  const stateTimelines: StateTimeline[] = stateCounts.map((perStation, line) => ({
+    lineId: line,
+    binSeconds: TIMELINE_BIN_SECONDS,
+    rows: Object.fromEntries(
+      stations.map((s, i) => [
+        s.id,
+        Array.from({ length: bins }, (_, b) => dominantState(perStation[i], b)),
+      ]),
+    ) as StateTimeline["rows"],
+  }));
+
   const unitsCompleted = tallies[lastIndex].outflowTotal;
   const yieldObserved = unitsCompleted > 0 ? unitsGood / unitsCompleted : 0;
 
@@ -348,15 +370,8 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
         fullShare: P * scheduledSeconds > 0 ? bufferFullSeconds[g] / (P * scheduledSeconds) : 0,
       })),
     },
-    stateTimeline: {
-      lineId: 0,
-      binSeconds: TIMELINE_BIN_SECONDS,
-      rows: Object.fromEntries(
-        stations.map((s, i) => [
-          s.id,
-          Array.from({ length: bins }, (_, b) => dominantState(stateCounts[i], b)),
-        ]),
-      ) as StateTimeline["rows"],
-    },
+    stateTimeline: stateTimelines[0],
+    stateTimelines,
+    flowByMinute,
   };
 }

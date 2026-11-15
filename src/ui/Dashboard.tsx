@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { DEMAND_CITATIONS, DEMAND_DATE, SHIFT_CITATION } from "../citations";
 import { fmtClock, fmtHours, fmtInt, fmtNum, fmtPct, fmtSigned } from "../lib/format";
 import type { CrewId, Plant, SimResult, WhatIfLevers } from "../types";
@@ -8,6 +8,9 @@ import { DowntimePareto } from "./DowntimePareto";
 import { RampTest } from "./RampTest";
 import { StationTable } from "./StationTable";
 import { Assumption, Derived, ModelOutput, Sourced } from "./Tag";
+
+// The 3D floor loads on its own, so the figures paint first.
+const TwinView = lazy(() => import("./TwinView"));
 
 function Kpi({
   label,
@@ -123,6 +126,10 @@ export function Dashboard({
           <b className="status">{behind ? "Behind takt" : "At or ahead of takt"}</b>
         </div>
       </div>
+
+      <Suspense fallback={<div className="twin twin-loading">Loading the floor twin.</div>}>
+        <TwinView plant={plant} sim={sim} shift={shift} />
+      </Suspense>
 
       <div className="kpis">
         <Kpi

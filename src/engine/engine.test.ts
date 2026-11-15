@@ -388,6 +388,13 @@ describe("default plant simulation invariants", () => {
       expect(Math.abs(downMinutes - 72)).toBeLessThanOrEqual(5);
     }
     expect(r.stateTimeline.rows.S6.includes("blocked")).toBe(false);
+    expect(r.stateTimelines.length).toBe(4);
+    expect(r.stateTimelines[0]).toBe(r.stateTimeline);
+    expect(r.stateTimelines[3].rows.S1.length).toBe(720);
+    const sum = (xs: number[]) => xs.reduce((x, y) => x + y, 0);
+    expect(sum(r.flowByMinute.started)).toBe(r.unitsStarted);
+    expect(sum(r.flowByMinute.good)).toBe(r.unitsGood);
+    expect(sum(r.flowByMinute.scrap)).toBe(r.unitsScrap);
   });
 
   it("is deterministic for seed 1", () => {

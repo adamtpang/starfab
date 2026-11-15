@@ -144,7 +144,9 @@ export interface SimResult {
     capacity: number;
     gaps: { afterStationId: StationId; average: number; fullShare: number }[];
   };
-  stateTimeline: StateTimeline;
+  stateTimeline: StateTimeline; // line 1
+  stateTimelines: StateTimeline[]; // every line
+  flowByMinute: { started: number[]; good: number[]; scrap: number[] }; // all lines
 }
 
 export type MachineState = "down" | "blocked" | "busy" | "idle";

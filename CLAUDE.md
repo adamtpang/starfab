@@ -17,7 +17,7 @@ Scaffolded on 2026-11-14 from the official Vite `react-ts` template (MIT), via `
 
 ## Design language
 
-The look is "Vacuum drafting" with the Weld arc palette, chosen by Adam on 2026-11-14. Rules, tokens and the options that were rejected are in `docs/design-language.md`. Read it before changing any style. No component library and no chart library. Fonts come from the `@fontsource/exo-2`, `@fontsource/ibm-plex-mono` and `@fontsource/ibm-plex-sans-condensed` npm packages (OFL-1.1, https://fontsource.org).
+The look is "Vacuum drafting" with the Weld arc palette, chosen by Adam on 2026-11-14. Rules, tokens and the options that were rejected are in `docs/design-language.md`. Read it before changing any style. No component library and no chart library. The floor twin uses `three` (MIT, https://threejs.org), loaded as a separate chunk. Fonts come from the `@fontsource/exo-2`, `@fontsource/ibm-plex-mono` and `@fontsource/ibm-plex-sans-condensed` npm packages (OFL-1.1, https://fontsource.org).
 
 ## Layout
 
@@ -25,11 +25,11 @@ The look is "Vacuum drafting" with the Weld arc palette, chosen by Adam on 2026-
 - `src/engine/`: `rng.ts`, `formulas.ts` (analytical calculator), `downtime.ts` (event calendar), `simulate.ts` (tick simulator), `engine.test.ts`
 - `src/applyLevers.ts`: what-if levers, with clamping and notes
 - `src/ramp.ts`: ramp test, sweeps one lever and finds where the line starts holding takt
+- `src/ui/`: dashboard components. `TwinView.tsx` is the 3D floor twin
 
 ## Beyond the tech spec
 
-Added on 2026-11-14 at Adam's request: finite buffers between stations (`Plant.bufferCapacity`, seed value 0 per A14, lever range 0 to 20), the ramp test, and two display fields on `SimResult` (`goodByHour`, `stateTimeline`). Fixtures F1 to F3 are unchanged and still pass.
-- `src/ui/`: dashboard components
+Added on 2026-11-14 at Adam's request: finite buffers between stations (`Plant.bufferCapacity`, seed value 0 per A14, lever range 0 to 20), the ramp test, the 3D floor twin, and display fields on `SimResult` (`goodByHour`, `stateTimeline`, `stateTimelines`, `flowByMinute`). Fixtures F1 to F3 are unchanged and still pass.
 
 ## Known spec note: bottleneck rule
 

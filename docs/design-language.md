@@ -24,7 +24,8 @@ Shape: **data-graphic**.
 ## Decision
 
 - **Component library: none.** Four widget kinds and no forms or accounts do not justify one. The page uses its own tokens and plain components.
-- **Graphics library: none.** The six graphics are simple enough for hand-written SVG. If the page gains many standard charts, look at Observable Plot first.
+- **Chart library: none.** The flat graphics are simple enough for hand-written SVG. If the page gains many standard charts, look at Observable Plot first.
+- **3D library: three.js** (`three` 0.187, MIT, read from npm on Nov 14, 2026), added the same day for the floor twin. It is loaded as its own chunk so the figures paint before the 3D floor does.
 - **Fonts:** Exo 2, IBM Plex Mono, IBM Plex Sans Condensed, bundled from the `@fontsource` npm packages (OFL-1.1). No font request leaves the site at runtime.
 - **Design language:** Vacuum drafting, with the Weld arc palette.
 
@@ -63,7 +64,11 @@ The space half is the setting, not the content: the sheet floats on a deep blue-
 
 ## Signature element
 
-The line elevation (Detail A): six isometric blocks on a conveyor centerline, block height showing utilization, with the bottleneck in violet under a slow pulse. Everything around it stays quiet.
+The floor twin at the top of the sheet: every line and station as an outlined 3D floor, replayed as a time-lapse of the simulated shift, with small panels laid over it (clock, counters, shift-time scrubber, model basis). Machine outlines follow rule 3: cyan running, violet blocked, red down. The fills stay dark, so it still reads as a drawing, not a render.
+
+The layout of that view (a 3D floor with overlay panels and a "model basis" note) follows the convention of factory digital-twin products. Adam asked for it on Nov 14, 2026 after reviewing public twin simulations. The page carries no other company's name, logo or artwork, and the model basis panel says plainly that the line is fictional.
+
+The line elevation (Detail A) is the second signature: six isometric blocks on a conveyor centerline, block height showing utilization, with the bottleneck in violet under a slow pulse.
 
 ## Options considered
 
