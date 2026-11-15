@@ -30,11 +30,22 @@ A hand-traced fixture in `src/engine/engine.test.ts` ("matches the hand-traced j
 | A38 | Demand of 2,000,000 units a year, spread evenly | Invented. No public source. |
 | A39 | 2 identical lines in parallel | Invented. |
 | A40 | Room for 3 parts after each station | Invented. |
+| A41 | Each line receives 180 material kits every hour, has room for 360, and starts the shift with 180 | Invented. Starting a board or a housing takes one kit. A delivery that does not fit waits at the dock until it does. |
+| A42 | 6 seconds to travel between stations | Invented. A part cannot be handed straight from machine to machine: it travels through the place after its station first. |
+
+## How deliveries and travel time work in the engine
+
+- **Deliveries.** A plant can carry a `supply` plan. Each line holds its own stock. The first delivery arrives one interval into the shift. A station that starts units and finds no stock is free and up but cannot start, and that time is reported as starved of material.
+- **Travel time.** A plant can carry `transferSeconds`. A unit that leaves a machine becomes available to the next station only after that many seconds. Because it needs somewhere to be while it travels, every gap gets at least one place even when the buffer size is zero.
+- **Rate model.** A starting station can go no faster than its even share of the delivered material. Travel time does not change the rate model, because it delays units without limiting how many can flow.
+
+Two hand-traced fixtures in `src/engine/engine.test.ts` pin both behaviors second by second.
 
 The shift pattern (A1 to A3), tick length (A15), seed (A16), downtime event rule (A17), downtime reasons (A18) and end-of-shift WIP (A19) are the same as in the star hall.
 
 ## What the assembly hall is not
 
-- No supplier deliveries, no lots, and no transfer time between stations.
+- No lots: every unit moves on its own. Deliveries are one kit type, not a bill of materials.
+- The even split of material between the two sub-lines in the rate model is a simplification. In the simulator the faster sub-line takes kits first.
 - No part ratios other than one of each.
 - Not a prediction for any real site.

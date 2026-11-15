@@ -164,6 +164,22 @@ export function parsePlantFile(text: string, fallback: Plant): PlantFileResult {
     shifts,
   };
 
+  if (file.transferSeconds !== undefined) {
+    plant.transferSeconds = num(file, "transferSeconds", "transferSeconds", 0, 600, { integer: true });
+  }
+  if (file.supply !== undefined) {
+    if (!isRecord(file.supply)) {
+      errors.push('"supply" must be an object.');
+    } else {
+      plant.supply = {
+        kitsPerDelivery: num(file.supply, "kitsPerDelivery", "supply kitsPerDelivery", 1, 1_000_000, { integer: true }),
+        intervalSeconds: num(file.supply, "intervalSeconds", "supply intervalSeconds", 1, 86400, { integer: true }),
+        stockCapacity: num(file.supply, "stockCapacity", "supply stockCapacity", 1, 10_000_000, { integer: true }),
+        initialStock: num(file.supply, "initialStock", "supply initialStock", 0, 10_000_000, { integer: true }),
+      };
+    }
+  }
+
   if (errors.length === 0) {
     const machines = stations.reduce((n, s) => n + s.parallelUnits, 0);
     const load = machines * parallelLines * scheduledHours * 3600;
@@ -190,6 +206,8 @@ export function plantToFile(plant: Plant): string {
       meanDowntimeEventSeconds: plant.meanDowntimeEventSeconds,
       bufferCapacity: plant.bufferCapacity ?? 0,
       scheduledHours: plant.shifts[0]?.scheduledHours ?? 12,
+      ...(plant.transferSeconds ? { transferSeconds: plant.transferSeconds } : {}),
+      ...(plant.supply ? { supply: plant.supply } : {}),
       stations: plant.stations.map((s) => ({
         id: s.id,
         name: s.name,

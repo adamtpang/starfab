@@ -50,6 +50,9 @@ export function computeClosedForm(plant: Plant, crew?: CrewId): ClosedFormResult
   // its own capacity. A join can only build as fast as its slowest stream.
   const { inputs, sources } = flowTopology(plant.stations);
   const out: number[] = [];
+  const supplyPerHour = plant.supply
+    ? (P * plant.supply.kitsPerDelivery * 3600) / plant.supply.intervalSeconds
+    : Infinity;
   let startRatePerHour = 0;
   let inflowToLast = 0;
   let mergedPerHour = 0;
@@ -58,7 +61,11 @@ export function computeClosedForm(plant: Plant, crew?: CrewId): ClosedFormResult
   plant.stations.forEach((s, i) => {
     const te = effectiveProcessSeconds(s);
     const cap = (P * 3600) / te;
-    const inflow = sources.includes(i) ? cap : Math.min(...inputs[i].map((a) => out[a]));
+    // A station that starts units can go no faster than its share of the
+    // material delivered (split evenly between the starting stations).
+    const inflow = sources.includes(i)
+      ? Math.min(cap, supplyPerHour / sources.length)
+      : Math.min(...inputs[i].map((a) => out[a]));
     if (sources.includes(i)) startRatePerHour += inflow;
     if (i === plant.stations.length - 1) inflowToLast = inflow;
     const processed = Math.min(inflow, cap);

@@ -8,13 +8,20 @@
   "rngSeed": 1,
   "meanDowntimeEventSeconds": 900,
   "bufferCapacity": 3,
+  "transferSeconds": 6,
+  "supply": {
+    "kitsPerDelivery": 180,
+    "intervalSeconds": 3600,
+    "stockCapacity": 360,
+    "initialStock": 180
+  },
   "hall": {
     "id": "assembly",
     "label": "Assembly hall",
     "product": "panel units",
     "unitNoun": "unit",
     "unitNounPlural": "units",
-    "blurb": "A fictional assembly hall: a board sub-line and a housing sub-line meet at one join station, then test and pack-out."
+    "blurb": "A fictional assembly hall: a board sub-line and a housing sub-line meet at one join station, then test and pack-out. Material arrives by delivery, and parts take time to travel."
   },
   "demandInfo": {
     "statement": "an invented figure with no public source behind it",
@@ -84,6 +91,16 @@
       "kind": "assumption",
       "id": "A20",
       "note": "S1 and S2 each start a part whenever a machine is free."
+    },
+    "transferSeconds": {
+      "kind": "assumption",
+      "id": "A42",
+      "note": "6 seconds to travel between stations. Invented."
+    },
+    "supply": {
+      "kind": "assumption",
+      "id": "A41",
+      "note": "180 material kits per line each hour, room for 360, starting with 180. Invented."
     }
   },
   "stations": [

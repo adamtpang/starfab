@@ -448,6 +448,13 @@ describe("assembly hall (fictional)", () => {
     expect(r.wipEnd).toBeGreaterThanOrEqual(0);
   });
 
+  it("runs on deliveries and travel time, and sometimes starves", () => {
+    expect(ASSEMBLY_PLANT.transferSeconds).toBe(6);
+    expect(r.supply!.deliveries).toBeGreaterThan(0);
+    expect(r.supply!.starvedSeconds).toBeGreaterThan(0);
+    expect(r.trace!.waits.unit.length).toBeGreaterThan(0);
+  });
+
   it("is behind takt, paced by the board sub-line, and at or below the rate model", () => {
     expect(closed.bottleneckStationId).toBe("S1");
     expect(r.aheadOrBehind).toBeLessThan(0);
@@ -550,6 +557,77 @@ describe("unit trace: every unit's path", () => {
     expect(off.trace).toBeNull();
     expect(off.unitsGood).toBe(on.unitsGood);
     expect(off.unitsScrap).toBe(on.unitsScrap);
+  });
+});
+
+describe("transfer time between stations", () => {
+  it("matches the hand-traced fixture: F2 with 5 seconds of travel", () => {
+    const r = simulateShift({ ...tinyPlant(), transferSeconds: 5 }, { yieldMode: "scripted" });
+    // S1 finishes at 10, 20, 30, 40, 50, 60. Each unit travels 5 seconds, so
+    // S2 starts them at 15, 25, 35, 45, 55 and finishes four inside the shift.
+    expect(r.transferSeconds).toBe(5);
+    expect(r.buffers.capacity).toBe(1); // one travelling place, even with no buffer
+    expect(r.unitsStarted).toBe(6);
+    expect(r.unitsGood).toBe(4);
+    expect(r.wipEnd).toBe(2); // one on S2, one travelling
+    expect(r.stationStats.S1.blockedSeconds).toBe(0);
+    const v = r.trace!.visits;
+    const s2 = v.enter.filter((_, k) => v.station[k] === 1);
+    expect(s2).toEqual([15, 25, 35, 45, 55]);
+    const w = r.trace!.waits;
+    expect(w.from).toEqual([10, 20, 30, 40, 50, 60]);
+    expect(w.to).toEqual([15, 25, 35, 45, 55, -1]);
+  });
+
+  it("never beats the same line with instant travel, and still conserves units", () => {
+    // Travel needs a place to travel in, so compare against a line that has
+    // that one place as a plain buffer. (Against no buffer at all, the extra
+    // place helps more than the travel time costs.)
+    const instant = simulateShift({ ...SEED_PLANT, bufferCapacity: 1 });
+    const slow = simulateShift({ ...SEED_PLANT, transferSeconds: 4 });
+    expect(slow.unitsGood).toBeLessThanOrEqual(instant.unitsGood);
+    expect(slow.unitsGood + slow.unitsScrap + slow.wipEnd).toBe(slow.unitsStarted);
+  });
+});
+
+describe("supplier deliveries", () => {
+  const supplied = (): Plant => ({
+    ...tinyPlant(),
+    supply: { kitsPerDelivery: 2, intervalSeconds: 30, stockCapacity: 4, initialStock: 1 },
+  });
+
+  it("matches the hand-traced fixture: the line starves until the truck arrives", () => {
+    const r = simulateShift(supplied(), { yieldMode: "scripted" });
+    // One kit in stock: S1 starts at 0 and then has nothing to build from
+    // until the first delivery of two kits at 30. It starts at 30 and 40,
+    // and starves again from 50.
+    expect(r.unitsStarted).toBe(3);
+    expect(r.supply).toEqual({ deliveries: 1, starvedSeconds: 30, heldSeconds: 0, stockAverage: r.supply!.stockAverage });
+    expect(r.trace!.visits.enter.filter((_, k) => r.trace!.visits.station[k] === 0)).toEqual([0, 30, 40]);
+    expect(r.unitsGood).toBe(3);
+    expect(r.wipEnd).toBe(0);
+    expect(r.stationStats.S1.busySeconds).toBe(30);
+    expect(r.stationStats.S1.idleSeconds).toBe(30);
+  });
+
+  it("holds a delivery at the dock when the stock area is full", () => {
+    const plant = supplied();
+    plant.supply = { kitsPerDelivery: 3, intervalSeconds: 10, stockCapacity: 4, initialStock: 4 };
+    const r = simulateShift(plant, { yieldMode: "scripted" });
+    expect(r.supply!.heldSeconds).toBeGreaterThan(0);
+    expect(r.supply!.starvedSeconds).toBe(0);
+    expect(r.unitsStarted).toBe(6); // material never limits this one
+  });
+
+  it("caps the rate model at the delivered material", () => {
+    const c = computeClosedForm(supplied());
+    // Two kits every 30 seconds is 240 an hour, below S1's 360 an hour.
+    expect(c.startRatePerHour).toBeCloseTo(240, 8);
+  });
+
+  it("has no supply block when a plant has no deliveries", () => {
+    expect(simulateShift(SEED_PLANT).supply).toBeNull();
+    expect(simulateShift(SEED_PLANT).transferSeconds).toBe(0);
   });
 });
 

@@ -117,7 +117,21 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
   const W = trace.waits;
   const unitLastVisit: number[] = [];
   let nextUnit = 0;
-  const bufferCapacity = Math.max(0, Math.floor(plant.bufferCapacity ?? 0));
+  // Transfer time: seconds a unit needs to travel to the next station. With
+  // a transfer time, every gap needs at least one place to travel in, and
+  // a unit can no longer be handed straight from machine to machine.
+  const transferSeconds = Math.max(0, Math.round(plant.transferSeconds ?? 0));
+  const bufferCapacity = Math.max(
+    transferSeconds > 0 ? 1 : 0,
+    Math.floor(plant.bufferCapacity ?? 0),
+  );
+  // Supplier deliveries: each line holds a stock of material kits. Starting
+  // a unit takes one kit, so a late or small delivery starves the line.
+  const supply = plant.supply ?? null;
+  let supplyDeliveries = 0;
+  let supplyStarvedSeconds = 0;
+  let supplyHeldSeconds = 0;
+  let supplyStockSeconds = 0;
   const bufferUnitSeconds: number[] = new Array(Math.max(0, stations.length - 1)).fill(0);
   const bufferFullSeconds: number[] = new Array(Math.max(0, stations.length - 1)).fill(0);
 
@@ -174,6 +188,12 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
     // first out. queueWaits holds each one's row in the wait table.
     const queueUnits: number[][] = stations.slice(0, -1).map(() => []);
     const queueWaits: number[][] = stations.slice(0, -1).map(() => []);
+    // Second at which each waiting unit has finished travelling.
+    const queueReady: number[][] = stations.slice(0, -1).map(() => []);
+    const headReady = (i: number, t: number) =>
+      queueUnits[i].length > 0 && queueReady[i][0] <= t + 1;
+    let stock = supply ? supply.initialStock : 0;
+    let nextDelivery = supply ? supply.intervalSeconds : 0;
     let lineStarted = 0;
     let lineLeft = 0; // units that left the line as good or scrap
 
@@ -210,6 +230,7 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
 
     const toBuffer = (i: number, m: Machine, t: number) => {
       queueUnits[i].push(m.unit);
+      queueReady[i].push(t + 1 + transferSeconds);
       if (tracing) {
         queueWaits[i].push(W.unit.length);
         W.unit.push(m.unit);
@@ -223,6 +244,7 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
 
     const fromBuffer = (i: number, t: number): number => {
       const unit = queueUnits[i].shift() as number;
+      queueReady[i].shift();
       if (tracing) W.to[queueWaits[i].shift() as number] = t + 1;
       return unit;
     };
@@ -237,11 +259,16 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
         const holders: (Machine | null)[] = [];
         let ready = true;
         for (const a of inputs[j]) {
-          if (queueUnits[a].length > 0) {
+          if (headReady(a, t)) {
             holders.push(null);
             continue;
           }
-          const u = machines[a].findIndex((x, k) => x.hasUnit && x.finished && down[a][k][t] === 0);
+          // With a transfer time a part must travel through the buffer, so
+          // it cannot be taken straight off the upstream machine.
+          const u =
+            transferSeconds > 0
+              ? -1
+              : machines[a].findIndex((x, k) => x.hasUnit && x.finished && down[a][k][t] === 0);
           if (u < 0) {
             ready = false;
             break;
@@ -282,7 +309,7 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
         return !m.hasUnit;
       }
       const target = machines[j];
-      for (let v = 0; v < target.length; v++) {
+      for (let v = 0; transferSeconds === 0 && v < target.length; v++) {
         if (!target[v].hasUnit && down[j][v][t] === 0) {
           const unit = m.unit;
           release(m, t, VISIT_OUTCOME.moved);
@@ -300,6 +327,18 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
     };
 
     for (let t = 0; t < scheduledSeconds; t++) {
+      // Deliveries arrive on a fixed interval. A delivery that does not fit
+      // in the stock area waits at the dock until it does.
+      if (supply && t >= nextDelivery) {
+        if (stock + supply.kitsPerDelivery <= supply.stockCapacity) {
+          stock += supply.kitsPerDelivery;
+          supplyDeliveries++;
+          nextDelivery = t + supply.intervalSeconds;
+        } else {
+          supplyHeldSeconds++;
+        }
+      }
+
       // Starts (A20): a machine at a station with nothing feeding it, that
       // came out of the previous tick idle and is up now, starts a unit and
       // works on it during this tick. In a straight line that is S1 only.
@@ -307,6 +346,13 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
         const first = machines[src];
         for (let u = 0; u < first.length; u++) {
           if (!first[u].hasUnit && down[src][u][t] === 0) {
+            if (supply) {
+              if (stock <= 0) {
+                supplyStarvedSeconds++; // free and up, but nothing to build from
+                continue;
+              }
+              stock--;
+            }
             place(nextUnit++, src, u, t);
             lineStarted++;
             flowByMinute.started[Math.floor(t / TIMELINE_BIN_SECONDS)]++;
@@ -372,7 +418,7 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
           }
           // An empty, up machine pulls the next unit from the buffer in
           // front of it. Like a direct transfer, work begins on the next tick.
-          if (!m.hasUnit && inputs[i].length === 1 && queueUnits[inputs[i][0]].length > 0) {
+          if (!m.hasUnit && inputs[i].length === 1 && headReady(inputs[i][0], t)) {
             place(fromBuffer(inputs[i][0], t), i, u, t + 1);
           } else if (!m.hasUnit && inputs[i].length > 1) {
             tryJoinStart(i, t);
@@ -384,6 +430,7 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
         bufferUnitSeconds[g] += queueUnits[g].length;
         if (bufferCapacity > 0 && queueUnits[g].length >= bufferCapacity) bufferFullSeconds[g]++;
       }
+      supplyStockSeconds += stock;
       wipSum += lineStarted - lineLeft;
     }
 
@@ -499,5 +546,15 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
     stateTimelines,
     flowByMinute,
     trace: tracing ? trace : null,
+    transferSeconds,
+    supply: supply
+      ? {
+          deliveries: supplyDeliveries,
+          starvedSeconds: supplyStarvedSeconds,
+          heldSeconds: supplyHeldSeconds,
+          // Average kits in stock per line over the shift.
+          stockAverage: P * scheduledSeconds > 0 ? supplyStockSeconds / (P * scheduledSeconds) : 0,
+        }
+      : null,
   };
 }

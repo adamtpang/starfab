@@ -48,11 +48,21 @@ export interface Plant {
   rngSeed: number; // A16, default 1
   meanDowntimeEventSeconds: number; // A17, default 900
   bufferCapacity?: number; // units between adjacent stations, A14 default 0
+  transferSeconds?: number; // travel time between stations, default 0
+  supply?: SupplyPlan; // supplier deliveries, default: material never runs out
   hall?: HallInfo;
   demandInfo?: DemandInfo;
   stations: Station[];
   shifts: ShiftPattern[];
   sources?: Record<string, Source>;
+}
+
+// Supplier deliveries to each line. Starting a unit takes one kit of stock.
+export interface SupplyPlan {
+  kitsPerDelivery: number;
+  intervalSeconds: number; // time between deliveries, first one after one interval
+  stockCapacity: number; // a delivery that does not fit waits at the dock
+  initialStock: number;
 }
 
 // Which fictional hall this plant is, and what it makes.
@@ -169,6 +179,13 @@ export interface SimResult {
   stateTimeline: StateTimeline; // line 1
   stateTimelines: StateTimeline[]; // every line
   flowByMinute: { started: number[]; good: number[]; scrap: number[] }; // all lines
+  transferSeconds: number;
+  supply: {
+    deliveries: number;
+    starvedSeconds: number; // machine seconds free and up with no material
+    heldSeconds: number; // seconds a delivery waited at a full dock
+    stockAverage: number;
+  } | null;
   trace: UnitTrace | null; // every unit's path, or null when tracing is off
 }
 

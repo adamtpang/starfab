@@ -286,6 +286,27 @@ export function Dashboard({
               tag={derived}
             />
             <Figure label="Average WIP" value={fmtNum(sim.wipAverage, 1)} tag={<ModelOutput />} />
+            {sim.supply && (
+              <>
+                <Figure
+                  label="Deliveries"
+                  value={fmtInt(sim.supply.deliveries)}
+                  tag={<Assumption id={plantSourceId(plant, "supply", "A41")} />}
+                />
+                <Figure
+                  label="Starved of material"
+                  value={`${fmtInt(sim.supply.starvedSeconds / 60)} min`}
+                  tag={<ModelOutput />}
+                />
+              </>
+            )}
+            {sim.transferSeconds > 0 && (
+              <Figure
+                label="Travel between stations"
+                value={`${fmtInt(sim.transferSeconds)} s`}
+                tag={<Assumption id={plantSourceId(plant, "transferSeconds", "A42")} />}
+              />
+            )}
             {sim.unitsMerged > 0 && (
               <Figure
                 label="Parts absorbed at joins"
