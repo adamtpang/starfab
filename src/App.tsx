@@ -3,6 +3,7 @@ import { applyLevers, sanitizeLevers } from "./applyLevers";
 import { DOCS_URL, REPO_URL } from "./citations";
 import { simulateShift } from "./engine/simulate";
 import { HALLS, type HallId } from "./plant";
+import { parsePlantFile, plantToFile, type PlantFileResult } from "./plantFile";
 import type { CrewId, Plant, StationId, WhatIfLevers } from "./types";
 import { Dashboard } from "./ui/Dashboard";
 import { Disclaimer } from "./ui/Disclaimer";
@@ -84,16 +85,41 @@ function toLevers(inputs: LeverInputs, stationInputs: StationInputs): WhatIfLeve
 
 export default function App() {
   const [hall, setHall] = useState<HallId>("star");
-  const seed = HALLS[hall];
+  const [custom, setCustom] = useState<Plant | null>(null);
+  const [fileReport, setFileReport] = useState<PlantFileResult | null>(null);
+  const halls: Partial<Record<HallId, Plant>> = custom ? { ...HALLS, custom } : HALLS;
+  const seed = halls[hall] ?? HALLS.star;
   const [inputs, setInputs] = useState<LeverInputs>(() => defaultInputs(HALLS.star));
   const [stationInputs, setStationInputs] = useState<StationInputs>(() =>
     defaultStationInputs(HALLS.star),
   );
   // Each hall has its own seed, so switching halls starts from that seed.
-  const chooseHall = (next: HallId) => {
+  const openHall = (next: HallId, plant: Plant) => {
     setHall(next);
-    setInputs(defaultInputs(HALLS[next]));
-    setStationInputs(defaultStationInputs(HALLS[next]));
+    setInputs(defaultInputs(plant));
+    setStationInputs(defaultStationInputs(plant));
+  };
+  const chooseHall = (next: HallId) => openHall(next, halls[next] ?? HALLS.star);
+
+  // Read a plant file in the browser. Nothing is uploaded.
+  const loadFile = (file: File | undefined) => {
+    if (!file) return;
+    file.text().then((text) => {
+      const report = parsePlantFile(text, HALLS.star);
+      setFileReport(report);
+      if (report.plant) {
+        setCustom(report.plant);
+        openHall("custom", report.plant);
+      }
+    });
+  };
+  const saveFile = () => {
+    const url = URL.createObjectURL(new Blob([plantToFile(seed)], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `starfab-${seed.hall?.id ?? "plant"}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
   const [crew, setCrew] = useState<CrewId>("A");
   const [theme, setTheme] = useState<Theme>(initialTheme);
@@ -136,7 +162,7 @@ export default function App() {
           <h1>starfab</h1>
           <p className="desc">{DESCRIPTION}</p>
           <div className="hall-switch" role="group" aria-label="Hall">
-            {(Object.keys(HALLS) as HallId[]).map((id) => (
+            {(Object.keys(halls) as HallId[]).map((id) => (
               <button
                 key={id}
                 type="button"
@@ -144,9 +170,23 @@ export default function App() {
                 aria-pressed={id === hall}
                 onClick={() => chooseHall(id)}
               >
-                {HALLS[id].hall?.label ?? id}
+                {halls[id]?.hall?.label ?? id}
               </button>
             ))}
+            <label className="crew-btn file-btn">
+              Load a plant file
+              <input
+                type="file"
+                accept=".json,application/json"
+                onChange={(e) => {
+                  loadFile(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            <button type="button" className="crew-btn" onClick={saveFile}>
+              Save this hall as a file
+            </button>
           </div>
           {/* One button. Its label names the mode you would switch to. */}
           <button
@@ -157,6 +197,33 @@ export default function App() {
             {theme === "studio" ? "Dark mode" : "Light mode"}
           </button>
         </header>
+
+        {fileReport && (
+          <div className={fileReport.plant ? "file-report" : "file-report file-report-bad"} role="status">
+            <strong>
+              {fileReport.plant
+                ? "Your plant is loaded. It was read in this browser and not uploaded anywhere."
+                : "That file could not be loaded. Nothing changed."}
+            </strong>
+            {fileReport.errors.length > 0 && (
+              <ul>
+                {fileReport.errors.map((e) => (
+                  <li key={e}>{e}</li>
+                ))}
+              </ul>
+            )}
+            {fileReport.plant && fileReport.defaults.length > 0 && (
+              <ul>
+                {fileReport.defaults.map((d) => (
+                  <li key={d}>{d}</li>
+                ))}
+              </ul>
+            )}
+            <button type="button" className="crew-btn" onClick={() => setFileReport(null)}>
+              Dismiss
+            </button>
+          </div>
+        )}
 
         <main className="layout">
           <Dashboard

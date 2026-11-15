@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { applyLevers, sanitizeLevers } from "../applyLevers";
 import { ASSEMBLY_PLANT, FAB_PLANT, SEED_PLANT } from "../plant";
+import { parsePlantFile, plantToFile } from "../plantFile";
 import { runRamp } from "../ramp";
 import { VISIT_OUTCOME } from "../types";
 import type { Plant, Station, StationId } from "../types";
@@ -549,6 +550,74 @@ describe("unit trace: every unit's path", () => {
     expect(off.trace).toBeNull();
     expect(off.unitsGood).toBe(on.unitsGood);
     expect(off.unitsScrap).toBe(on.unitsScrap);
+  });
+});
+
+describe("loading a plant from a file", () => {
+  it("round-trips every built-in hall with identical results", () => {
+    for (const hall of [SEED_PLANT, FAB_PLANT, ASSEMBLY_PLANT]) {
+      const { plant, errors } = parsePlantFile(plantToFile(hall), SEED_PLANT);
+      expect(errors).toEqual([]);
+      const a = simulateShift(hall);
+      const b = simulateShift(plant!);
+      expect(b.unitsGood).toBe(a.unitsGood);
+      expect(b.unitsScrap).toBe(a.unitsScrap);
+      expect(b.bottleneckStationId).toBe(a.bottleneckStationId);
+    }
+  });
+
+  it("marks every loaded number as coming from the file", () => {
+    const { plant } = parsePlantFile(plantToFile(SEED_PLANT), SEED_PLANT);
+    expect(plant!.stations[0].sources.cycleTimeSeconds).toEqual({
+      kind: "assumption",
+      id: "FILE",
+      note: "Loaded from your file.",
+    });
+    expect(plant!.hall?.id).toBe("custom");
+  });
+
+  it("rejects bad files with plain reasons and loads nothing", () => {
+    expect(parsePlantFile("not json", SEED_PLANT).errors).toEqual(["The file is not valid JSON."]);
+    expect(parsePlantFile("[1, 2]", SEED_PLANT).plant).toBeNull();
+    const broken = JSON.parse(plantToFile(SEED_PLANT));
+    broken.stations[0].firstPassYield = 1.4;
+    broken.stations[1].cycleTimeSeconds = "fast";
+    broken.stations[2].feeds = "S1";
+    broken.parallelLines = 0;
+    delete broken.annualDemandKits;
+    const r = parsePlantFile(JSON.stringify(broken), SEED_PLANT);
+    expect(r.plant).toBeNull();
+    expect(r.errors).toEqual([
+      "S1 firstPassYield must be between 0 and 1. The file has 1.4.",
+      "S2 cycleTimeSeconds must be a number.",
+      'S3 "feeds" must name a later station in the list.',
+      "parallelLines must be between 1 and 12. The file has 0.",
+      "annualDemandKits is missing.",
+    ]);
+  });
+
+  it("lists each default it had to fill in", () => {
+    const minimal = {
+      annualDemandKits: 100000,
+      parallelLines: 1,
+      stations: [{ name: "Only station", cycleTimeSeconds: 30, firstPassYield: 0.9, availability: 0.9 }],
+    };
+    const r = parsePlantFile(JSON.stringify(minimal), SEED_PLANT);
+    expect(r.errors).toEqual([]);
+    expect(r.defaults).toContain("S1 parallelUnits was missing, so 1 is used.");
+    expect(r.defaults).toContain("bufferCapacity was missing, so 0 is used.");
+    expect(r.defaults).toContain("scheduledHours was missing, so 12 is used.");
+    const sim = simulateShift(r.plant!);
+    expect(sim.unitsGood + sim.unitsScrap + sim.wipEnd).toBe(sim.unitsStarted);
+  });
+
+  it("refuses a plant too large to rerun live", () => {
+    const big = JSON.parse(plantToFile(FAB_PLANT));
+    big.parallelLines = 12;
+    for (const s of big.stations) s.parallelUnits = 40;
+    const r = parsePlantFile(JSON.stringify(big), SEED_PLANT);
+    expect(r.plant).toBeNull();
+    expect(r.errors[0]).toMatch(/too large to rerun live/);
   });
 });
 

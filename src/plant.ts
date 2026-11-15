@@ -10,8 +10,9 @@ export const SEED_PLANT = starSeed as unknown as Plant;
 export const FAB_PLANT = fabSeed as unknown as Plant;
 export const ASSEMBLY_PLANT = assemblySeed as unknown as Plant;
 
-export type HallId = "star" | "fab" | "assembly";
-export const HALLS: Record<HallId, Plant> = {
+export type BuiltInHallId = "star" | "fab" | "assembly";
+export type HallId = BuiltInHallId | "custom";
+export const HALLS: Record<BuiltInHallId, Plant> = {
   star: SEED_PLANT,
   fab: FAB_PLANT,
   assembly: ASSEMBLY_PLANT,
