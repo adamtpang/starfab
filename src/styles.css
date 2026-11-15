@@ -23,9 +23,44 @@
   --attention: #c7b3ff;
   --fault: #ff5c6c;
 
+  /* Surfaces derived from the neutrals. */
+  --overlay: rgba(4, 6, 15, 0.82);
+  --detail-bg: rgba(4, 6, 15, 0.5);
+  --shade: #000;
+
   --display: "Exo 2", "Segoe UI", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --ui: "IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif;
+}
+
+/* Studio: a light theme of the same language, in the manner of a digital
+   twin vendor's studio renders. Only token values change. */
+:root[data-theme="studio"] {
+  color-scheme: light;
+  --page: #e6e7e9;
+  --sheet-hi: #f7f7f5;
+  --sheet-mid: #f2f3f4;
+  --sheet-lo: #ffffff;
+  --ink: #0b0d12;
+  --text: #3a4250;
+  --dim: #636c7a;
+  --rule: #d6d9de;
+  --line: #14607c;
+  --line-dim: #a9b2bd;
+  --fill: #bfe2ee;
+  --attention: #6541d1;
+  --fault: #cf2c3c;
+  --overlay: rgba(255, 255, 255, 0.9);
+  --detail-bg: rgba(255, 255, 255, 0.7);
+  --shade: #fff;
+}
+
+:root[data-theme="studio"] .sheet {
+  background: linear-gradient(180deg, var(--sheet-hi), #e9ebee);
+}
+
+:root[data-theme="studio"] .twin {
+  background: linear-gradient(180deg, #dfe2e6, #eef0f2 60%, #e3e5e8);
 }
 
 * {
@@ -88,6 +123,12 @@ strong {
   max-width: 96rem;
   margin: 0 auto;
   padding: 1.1rem 1.25rem 3rem;
+}
+
+.theme-toggle {
+  margin-left: auto;
+  display: flex;
+  gap: 0.3rem;
 }
 
 .masthead {
@@ -264,7 +305,7 @@ button {
 .twin-bc {
   position: absolute;
   border: 1px solid var(--line-dim);
-  background: rgba(4, 6, 15, 0.82);
+  background: var(--overlay);
 }
 
 .twin-tl {
@@ -300,7 +341,7 @@ button {
 }
 
 .twin-tr .crew-btn {
-  background: rgba(4, 6, 15, 0.82);
+  background: var(--overlay);
 }
 
 .twin-tr .crew-btn.active {
@@ -495,7 +536,7 @@ button {
 .detail {
   min-width: 0;
   border: 1px solid var(--line-dim);
-  background: rgba(4, 6, 15, 0.5);
+  background: var(--detail-bg);
 }
 
 .detail-wide {
@@ -650,32 +691,32 @@ svg text.g-flag {
 }
 
 .g-face-t {
-  fill: color-mix(in srgb, var(--fill) 75%, #000);
+  fill: color-mix(in srgb, var(--fill) 75%, var(--shade));
   stroke: var(--line);
 }
 
 .g-face-l {
-  fill: color-mix(in srgb, var(--fill) 45%, #000);
+  fill: color-mix(in srgb, var(--fill) 45%, var(--shade));
   stroke: var(--line);
 }
 
 .g-face-r {
-  fill: color-mix(in srgb, var(--fill) 28%, #000);
+  fill: color-mix(in srgb, var(--fill) 28%, var(--shade));
   stroke: var(--line);
 }
 
 .g-hold .g-face-t {
-  fill: color-mix(in srgb, var(--attention) 45%, #000);
+  fill: color-mix(in srgb, var(--attention) 45%, var(--shade));
   stroke: var(--attention);
 }
 
 .g-hold .g-face-l {
-  fill: color-mix(in srgb, var(--attention) 30%, #000);
+  fill: color-mix(in srgb, var(--attention) 30%, var(--shade));
   stroke: var(--attention);
 }
 
 .g-hold .g-face-r {
-  fill: color-mix(in srgb, var(--attention) 20%, #000);
+  fill: color-mix(in srgb, var(--attention) 20%, var(--shade));
   stroke: var(--attention);
 }
 
@@ -714,7 +755,7 @@ svg text.g-flag {
 }
 
 .g-bar-down {
-  fill: color-mix(in srgb, var(--fault) 35%, #000);
+  fill: color-mix(in srgb, var(--fault) 35%, var(--shade));
   stroke: var(--fault);
 }
 

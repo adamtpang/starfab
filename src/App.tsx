@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { applyLevers, sanitizeLevers } from "./applyLevers";
 import { DEMAND_CITATIONS, DEMAND_DATE, DOCS_URL, REPO_URL } from "./citations";
 import { simulateShift } from "./engine/simulate";
@@ -38,6 +38,20 @@ function defaultStationInputs(): StationInputs {
   return out;
 }
 
+export type Theme = "vacuum" | "studio";
+
+// The page opens in the dark Vacuum look. "#studio" in the address, or the
+// toggle, switches to the light Studio theme.
+function initialTheme(): Theme {
+  try {
+    if (location.hash === "#studio") return "studio";
+    if (location.hash === "#vacuum") return "vacuum";
+    return localStorage.getItem("starfab-theme") === "studio" ? "studio" : "vacuum";
+  } catch {
+    return "vacuum";
+  }
+}
+
 // A blank field is "not a number" and falls back to the seed with a note.
 function parse(text: string): number {
   return text.trim() === "" ? Number.NaN : Number(text);
@@ -72,6 +86,26 @@ export default function App() {
   const [inputs, setInputs] = useState<LeverInputs>(defaultInputs);
   const [stationInputs, setStationInputs] = useState<StationInputs>(defaultStationInputs);
   const [crew, setCrew] = useState<CrewId>("A");
+  const [theme, setTheme] = useState<Theme>(initialTheme);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem("starfab-theme", theme);
+    } catch {
+      // Storage can be blocked. The toggle still works for this visit.
+    }
+  }, [theme]);
+
+  // Follow "#studio" and "#vacuum" when the address changes without a reload.
+  useEffect(() => {
+    const onHash = () => {
+      if (location.hash === "#studio") setTheme("studio");
+      if (location.hash === "#vacuum") setTheme("vacuum");
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
 
   const { plant, notes, sim, levers } = useMemo(() => {
     const raw = toLevers(inputs, stationInputs);
@@ -91,10 +125,30 @@ export default function App() {
         <header className="masthead">
           <h1>starfab</h1>
           <p className="desc">{DESCRIPTION}</p>
+          <div className="theme-toggle" role="group" aria-label="Theme">
+            {(["vacuum", "studio"] as Theme[]).map((t) => (
+              <button
+                key={t}
+                type="button"
+                className={t === theme ? "crew-btn active" : "crew-btn"}
+                aria-pressed={t === theme}
+                onClick={() => setTheme(t)}
+              >
+                {t === "vacuum" ? "Vacuum" : "Studio"}
+              </button>
+            ))}
+          </div>
         </header>
 
         <main className="layout">
-          <Dashboard plant={plant} sim={sim} levers={levers} crew={crew} onCrew={setCrew} />
+          <Dashboard
+            plant={plant}
+            sim={sim}
+            levers={levers}
+            crew={crew}
+            onCrew={setCrew}
+            theme={theme}
+          />
           <Levers
             inputs={inputs}
             onChange={(key: LeverKey, value: string) => setInputs((p) => ({ ...p, [key]: value }))}

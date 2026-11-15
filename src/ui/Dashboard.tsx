@@ -60,12 +60,14 @@ export function Dashboard({
   plant,
   sim,
   levers,
+  theme,
   crew,
   onCrew,
 }: {
   plant: Plant;
   sim: SimResult;
   levers: WhatIfLevers;
+  theme: "vacuum" | "studio";
   crew: CrewId;
   onCrew: (crew: CrewId) => void;
 }) {
@@ -128,7 +130,7 @@ export function Dashboard({
       </div>
 
       <Suspense fallback={<div className="twin twin-loading">Loading the floor twin.</div>}>
-        <TwinView plant={plant} sim={sim} shift={shift} />
+        <TwinView plant={plant} sim={sim} shift={shift} theme={theme} />
       </Suspense>
 
       <div className="kpis">

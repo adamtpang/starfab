@@ -9,23 +9,43 @@ import type { MachineState, Plant, ShiftPattern, SimResult } from "../types";
 // of their simulated state. Kit motion on the conveyors is an illustration
 // of flow, not a unit-accurate replay.
 
-const COLORS = {
-  floor: 0x071226,
-  floorEdge: 0x2f7391,
-  body: 0x0a2233,
-  rail: 0x1d2a4d,
-  kit: 0xffffff,
-  busy: 0x6fe0ff,
-  blocked: 0xc7b3ff,
-  down: 0xff5c6c,
-  idle: 0x2f7391,
-} as const;
+type Theme = "vacuum" | "studio";
 
-const STATE_COLOR: Record<MachineState, number> = {
-  busy: COLORS.busy,
-  blocked: COLORS.blocked,
-  down: COLORS.down,
-  idle: COLORS.idle,
+interface Palette {
+  lit: boolean; // studio uses soft lighting, vacuum is a flat drawing
+  floor: number;
+  floorEdge: number;
+  rail: number;
+  kit: number;
+  label: string;
+  labelDim: string;
+  edge: Record<MachineState, number>;
+  body: Record<MachineState, number>;
+}
+
+const PALETTES: Record<Theme, Palette> = {
+  vacuum: {
+    lit: false,
+    floor: 0x071226,
+    floorEdge: 0x2f7391,
+    rail: 0x1d2a4d,
+    kit: 0xffffff,
+    label: "#a9c1f5",
+    labelDim: "#7f9ad8",
+    edge: { busy: 0x6fe0ff, blocked: 0xc7b3ff, down: 0xff5c6c, idle: 0x2f7391 },
+    body: { busy: 0x0a2233, blocked: 0x1c1838, down: 0x33121a, idle: 0x0a1626 },
+  },
+  studio: {
+    lit: true,
+    floor: 0xf3f3f1,
+    floorEdge: 0xb9c0c9,
+    rail: 0xcfd4da,
+    kit: 0x14607c,
+    label: "#3a4250",
+    labelDim: "#636c7a",
+    edge: { busy: 0x5b6672, blocked: 0x6541d1, down: 0xcf2c3c, idle: 0xa9b2bd },
+    body: { busy: 0xffffff, blocked: 0xd9cffa, down: 0xf5b9bf, idle: 0xe2e5e9 },
+  },
 };
 
 const DX = 5; // spacing between stations along a line
@@ -37,6 +57,7 @@ interface MachineRef {
   line: number;
   station: number;
   edges: THREE.LineBasicMaterial;
+  fill: THREE.MeshBasicMaterial | THREE.MeshLambertMaterial;
   kit: THREE.Mesh | null; // kit travelling to the next station
   x: number;
   z: number;
@@ -116,10 +137,12 @@ export default function TwinView({
   plant,
   sim,
   shift,
+  theme,
 }: {
   plant: Plant;
   sim: SimResult;
   shift: ShiftPattern;
+  theme: Theme;
 }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const simRef = useRef(sim);
@@ -165,6 +188,17 @@ export default function TwinView({
     mount.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
+    const C = PALETTES[theme];
+    const solid = (color: number) => {
+      const options = { color, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 };
+      return C.lit ? new THREE.MeshLambertMaterial(options) : new THREE.MeshBasicMaterial(options);
+    };
+    if (C.lit) {
+      scene.add(new THREE.HemisphereLight(0xffffff, 0xc9ced6, 1.9));
+      const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+      sun.position.set(20, 40, 10);
+      scene.add(sun);
+    }
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 400);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -208,21 +242,13 @@ export default function TwinView({
     };
 
     // Floor slab.
-    const floorFill = track(new THREE.MeshBasicMaterial({ color: COLORS.floor }));
-    const floorEdge = track(new THREE.LineBasicMaterial({ color: COLORS.floorEdge }));
+    const floorFill = track(solid(C.floor));
+    const floorEdge = track(new THREE.LineBasicMaterial({ color: C.floorEdge }));
     outlined([floorW, 0.4, floorD], [0, -0.2, 0], floorFill, floorEdge, scene);
 
-    const bodyFill = track(
-      new THREE.MeshBasicMaterial({
-        color: COLORS.body,
-        polygonOffset: true,
-        polygonOffsetFactor: 1,
-        polygonOffsetUnits: 1,
-      }),
-    );
-    const railFill = track(new THREE.MeshBasicMaterial({ color: COLORS.rail }));
-    const railEdge = track(new THREE.LineBasicMaterial({ color: COLORS.idle }));
-    const kitFill = track(new THREE.MeshBasicMaterial({ color: COLORS.kit }));
+    const railFill = track(solid(C.rail));
+    const railEdge = track(new THREE.LineBasicMaterial({ color: C.edge.idle }));
+    const kitFill = track(solid(C.kit));
     const kitGeometry = track(new THREE.BoxGeometry(0.42, 0.3, 0.42));
 
     const machines: MachineRef[] = [];
@@ -235,7 +261,8 @@ export default function TwinView({
       outlined([stationCount * DX - 1.2, 0.12, 0.5], [0, 0.06, z + 1.55], railFill, railEdge, scene);
       for (let i = 0; i < stationCount; i++) {
         const x = stationX(i);
-        const edges = track(new THREE.LineBasicMaterial({ color: COLORS.idle }));
+        const edges = track(new THREE.LineBasicMaterial({ color: C.edge.idle }));
+        const bodyFill = track(solid(C.body.idle));
         const group = new THREE.Group();
         group.position.set(x, 0, z - 0.3);
         for (const part of stationParts(i)) outlined(part.size, part.at, bodyFill, edges, group);
@@ -247,16 +274,16 @@ export default function TwinView({
           kit.visible = false;
           scene.add(kit);
         }
-        machines.push({ line: l, station: i, edges, kit, x, z });
+        machines.push({ line: l, station: i, edges, fill: bodyFill, kit, x, z });
       }
-      const label = floorLabel(`LINE ${l + 1}`, 3.2, "#7f9ad8");
+      const label = floorLabel(`LINE ${l + 1}`, 3.2, C.labelDim);
       label.position.set(-floorW / 2 + 2.0, 0.02, z + 2.25);
       scene.add(label);
       disposables.push((label.material as THREE.MeshBasicMaterial).map as THREE.Texture);
       disposables.push(label.material as THREE.Material, label.geometry);
     }
     plant.stations.forEach((s, i) => {
-      const label = floorLabel(`${s.id} ${s.name.toUpperCase()}`, 4.4, "#a9c1f5");
+      const label = floorLabel(`${s.id} ${s.name.toUpperCase()}`, 4.4, C.label);
       label.position.set(stationX(i) + 0.2, 0.02, floorD / 2 - 0.7);
       scene.add(label);
       disposables.push((label.material as THREE.MeshBasicMaterial).map as THREE.Texture);
@@ -309,7 +336,8 @@ export default function TwinView({
         const station = plant.stations[m.station];
         const row = current.stateTimelines[m.line]?.rows[station.id];
         const state: MachineState = row?.[bin] ?? "idle";
-        m.edges.color.setHex(STATE_COLOR[state]);
+        m.edges.color.setHex(C.edge[state]);
+        m.fill.color.setHex(C.body[state]);
         if (m.kit) {
           m.kit.visible = state === "busy";
           m.kit.position.x = m.x + phase * DX;
@@ -334,9 +362,9 @@ export default function TwinView({
       renderer.dispose();
       mount.removeChild(renderer.domElement);
     };
-    // The scene is rebuilt only when the floor layout changes.
+    // The scene is rebuilt only when the floor layout or the theme changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lines, stationCount, stationKey]);
+  }, [lines, stationCount, stationKey, theme]);
 
   const bin = Math.min(Math.max(0, totalMinutes - 1), Math.max(0, Math.floor(minute)));
   const good = totals.good[bin] ?? 0;

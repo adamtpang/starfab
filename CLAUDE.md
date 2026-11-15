@@ -10,7 +10,7 @@ Scaffolded on 2026-11-14 from the official Vite `react-ts` template (MIT), via `
 
 - Read `docs/HANDOFF-fable.md` and `docs/tech-spec.md` before changing the engine or UI.
 - Keep the disclaimer visible: "Unofficial fan or learning project, not affiliated with SpaceX."
-- Dark UI. No em dashes anywhere. No SpaceX or Starlink logos or wordmarks.
+- Dark UI by default (the light Studio theme is an opt-in toggle). No em dashes anywhere. No SpaceX or Starlink logos or wordmarks.
 - Every number is sourced (link plus date) or labeled `ASSUMPTION`. Assumption ids A1 to A20 are fixed.
 - No secrets in git. Do not commit `.env*` or `.vercel/`.
 - Do not push to `main` and do not deploy. Adam deploys.
