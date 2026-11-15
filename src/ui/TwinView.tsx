@@ -80,26 +80,66 @@ const RAIL = 1.55; // the conveyor runs just in front of each station
 const GLIDE = 3; // simulated seconds a unit takes to glide onto a station
 const SPEEDS = [10, 30, 300, 3600]; // simulated seconds per second of playback
 const DEFAULT_SPEED = 30;
+type View = "floor" | "line" | "plan";
+const VIEWS: { id: View; label: string }[] = [
+  { id: "floor", label: "Whole floor" },
+  { id: "line", label: "Line 1" },
+  { id: "plan", label: "Plan" },
+];
 
 type Mover = { axis: "x" | "y"; amplitude: number; rate: number };
 interface Part {
   size: [number, number, number];
   at: [number, number, number];
   round?: boolean; // drawn as a cylinder lying along x
+  upright?: boolean; // drawn as a cylinder standing up
   mover?: Mover;
 }
 
-// A handful of primitives per station, so each one reads as a different
-// kind of work. Sizes are [width, height, depth], positions are centers.
-function stationParts(index: number): Part[] {
+type Shape =
+  | "racks"
+  | "bench"
+  | "press"
+  | "gantry"
+  | "chamber"
+  | "packout"
+  | "towers"
+  | "scanner"
+  | "cluster"
+  | "beamline"
+  | "molder";
+
+const FALLBACK: Shape[] = ["racks", "bench", "press", "gantry", "chamber", "packout"];
+
+// Pick a shape from what the station is called, so the same kind of work
+// looks the same in every hall. Unknown names fall back by position.
+function shapeFor(name: string, index: number): Shape {
+  const n = name.toLowerCase();
+  if (/kit|rack|receiv|stock/.test(n)) return "racks";
+  if (/lith|expos/.test(n)) return "scanner";
+  if (/depos|furnace|cure|oven/.test(n)) return "towers";
+  if (/etch|clean|wash/.test(n)) return "cluster";
+  if (/implant|anneal|beam/.test(n)) return "beamline";
+  if (/mold|cast|form/.test(n)) return "molder";
+  if (/electr|board|solder/.test(n)) return "bench";
+  if (/mech|press|stamp|machin/.test(n)) return "press";
+  if (/integr|join|fasten|assembl|weld/.test(n)) return "gantry";
+  if (/test|inspect|proof/.test(n)) return "chamber";
+  if (/pack|ship/.test(n)) return "packout";
+  return FALLBACK[index % FALLBACK.length];
+}
+
+// A handful of primitives per shape, so each kind of work reads differently.
+// Sizes are [width, height, depth], positions are centers.
+function stationParts(shape: Shape): Part[] {
   const cabinet: Part = { size: [0.5, 1.1, 0.5], at: [-1.75, 0.55, -0.7] };
-  switch (index % 6) {
-    case 0: // racks of parts
+  switch (shape) {
+    case "racks": // shelving full of parts
       return [
         ...[-0.9, 0, 0.9].map((z): Part => ({ size: [2.2, 1.5, 0.55], at: [0, 0.75, z] })),
         ...[-0.9, 0, 0.9].map((z): Part => ({ size: [2.3, 0.08, 0.62], at: [0, 1.56, z] })),
       ];
-    case 1: // bench with a hood
+    case "bench": // bench with a hood and a moving head
       return [
         { size: [2.6, 0.8, 1.8], at: [0, 0.4, 0] },
         { size: [2.0, 0.5, 1.2], at: [0, 1.45, 0] },
@@ -108,7 +148,7 @@ function stationParts(index: number): Part[] {
         { size: [0.9, 0.12, 0.6], at: [0, 0.86, 0.3], mover: { axis: "x", amplitude: 0.5, rate: 2.2 } },
         cabinet,
       ];
-    case 2: // press with a moving head
+    case "press": // press with a moving head
       return [
         { size: [2.4, 0.9, 2.0], at: [0, 0.45, 0] },
         { size: [0.9, 2.2, 0.9], at: [-0.5, 2.0, -0.3] },
@@ -116,7 +156,7 @@ function stationParts(index: number): Part[] {
         { size: [0.9, 0.5, 0.9], at: [0.45, 1.75, 0.1], mover: { axis: "y", amplitude: 0.4, rate: 3.2 } },
         cabinet,
       ];
-    case 3: // gantry over a table, with a moving carriage
+    case "gantry": // gantry over a table, with a moving carriage
       return [
         { size: [2.4, 0.6, 1.8], at: [0, 0.3, 0] },
         { size: [0.25, 2.4, 0.25], at: [-1.2, 1.2, -1.0] },
@@ -126,20 +166,58 @@ function stationParts(index: number): Part[] {
         { size: [2.9, 0.3, 2.5], at: [0, 2.55, 0] },
         { size: [0.5, 0.6, 0.5], at: [0, 2.1, 0], mover: { axis: "x", amplitude: 0.8, rate: 1.6 } },
       ];
-    case 4: // closed test chamber
+    case "chamber": // closed test chamber on a base
       return [
         { size: [2.6, 0.5, 2.2], at: [0, 0.25, 0] },
         { size: [2.4, 1.7, 1.7], at: [0, 1.35, 0], round: true },
         { size: [0.8, 0.4, 0.8], at: [0, 2.4, 0] },
         cabinet,
       ];
-    default: // table and stacked cartons
+    case "packout": // table, stacked cartons and a board
       return [
         { size: [2.6, 0.5, 1.8], at: [0, 0.25, 0] },
         { size: [0.8, 0.7, 0.8], at: [-0.7, 0.85, 0] },
         { size: [0.8, 0.7, 0.8], at: [0.3, 0.85, 0.2] },
         { size: [0.8, 0.7, 0.8], at: [-0.2, 1.55, 0.1] },
         { size: [0.12, 1.2, 1.6], at: [1.25, 1.1, 0] },
+      ];
+    case "towers": // a row of tall furnace tubes on a plinth
+      return [
+        { size: [2.8, 0.4, 2.0], at: [0, 0.2, 0] },
+        ...[-0.9, 0, 0.9].map((x): Part => ({ size: [0.7, 2.6, 0.7], at: [x, 1.7, -0.2], upright: true })),
+        { size: [2.8, 0.25, 0.5], at: [0, 3.05, -0.2] },
+        cabinet,
+      ];
+    case "scanner": // big sealed enclosure with a lens barrel and a loader
+      return [
+        { size: [2.8, 2.3, 2.2], at: [0, 1.15, -0.1] },
+        { size: [0.9, 0.9, 0.9], at: [0, 2.75, -0.1], upright: true },
+        { size: [1.0, 1.1, 0.7], at: [0.6, 0.55, 1.25] },
+        { size: [0.9, 0.1, 0.5], at: [-0.7, 1.0, 1.2], mover: { axis: "x", amplitude: 0.3, rate: 1.8 } },
+      ];
+    case "cluster": // a round hub with process modules around it
+      return [
+        { size: [1.3, 1.1, 1.3], at: [0, 0.55, 0], upright: true },
+        { size: [0.9, 1.5, 0.9], at: [-1.15, 0.75, 0] },
+        { size: [0.9, 1.5, 0.9], at: [1.15, 0.75, 0] },
+        { size: [0.9, 1.5, 0.9], at: [0, 0.75, -1.15] },
+        { size: [0.5, 0.5, 0.5], at: [0, 1.4, 0], upright: true, mover: { axis: "y", amplitude: 0.25, rate: 2.6 } },
+      ];
+    case "beamline": // a long, low beam tube between two end stations
+      return [
+        { size: [1.0, 1.7, 1.6], at: [-1.1, 0.85, 0] },
+        { size: [2.0, 0.5, 0.5], at: [0.4, 1.0, 0], round: true },
+        { size: [0.9, 1.2, 1.2], at: [1.35, 0.6, 0] },
+        { size: [2.6, 0.2, 1.6], at: [0.1, 0.1, 0] },
+      ];
+    default: // molder: a long barrel, a hopper and a clamp that moves
+      return [
+        { size: [2.8, 0.7, 1.3], at: [0, 0.35, 0] },
+        { size: [1.6, 0.55, 0.55], at: [-0.5, 1.05, 0], round: true },
+        { size: [0.55, 0.7, 0.55], at: [-0.9, 1.65, 0], upright: true },
+        { size: [0.9, 1.1, 1.2], at: [0.95, 1.25, 0] },
+        { size: [0.25, 0.9, 1.0], at: [0.35, 1.2, 0], mover: { axis: "x", amplitude: 0.15, rate: 3.0 } },
+        cabinet,
       ];
   }
 }
@@ -238,7 +316,7 @@ export default function TwinView({
   const secondsRef = useRef(0);
   const playingRef = useRef(true);
   const speedRef = useRef(DEFAULT_SPEED);
-  const resetViewRef = useRef<() => void>(() => {});
+  const viewRef = useRef<(view: View) => void>(() => {});
 
   const [seconds, setSeconds] = useState(0);
   const [playing, setPlaying] = useState(
@@ -334,14 +412,18 @@ export default function TwinView({
     sun.shadow.normalBias = 0.03;
     scene.add(sun);
 
-    const resetView = () => {
-      camera.position.set(60, 52, 60);
-      camera.zoom = 1;
-      controls.target.set(0, 0.5, 0.6);
-      controls.update();
+    // Camera presets: the whole floor, a close look at line 1, or straight
+    // down like a plan drawing.
+    const setView = (view: View) => {
+      const z = view === "line" ? lineZ(0) + 0.6 : 0.6;
+      controls.target.set(0, 0.5, z);
+      if (view === "plan") camera.position.set(0, 90, z + 0.01);
+      else camera.position.set(60, 52, 60 + z);
+      camera.zoom = view === "line" ? Math.min(3, Math.max(1.4, lines * 0.7)) : 1;
       camera.updateProjectionMatrix();
+      controls.update();
     };
-    resetViewRef.current = resetView;
+    viewRef.current = setView;
 
     const disposables: { dispose: () => void }[] = [];
     const track = <T extends { dispose: () => void }>(item: T): T => {
@@ -367,7 +449,11 @@ export default function TwinView({
     ) => {
       const [w, h, d] = part.size;
       const geometry = track(
-        part.round ? new THREE.CylinderGeometry(h / 2, h / 2, w, 20) : new THREE.BoxGeometry(w, h, d),
+        part.round
+          ? new THREE.CylinderGeometry(h / 2, h / 2, w, 20)
+          : part.upright
+            ? new THREE.CylinderGeometry(w / 2, w / 2, h, 20)
+            : new THREE.BoxGeometry(w, h, d),
       );
       const mesh = new THREE.Mesh(geometry, fill);
       mesh.position.set(...part.at);
@@ -419,7 +505,7 @@ export default function TwinView({
         const group = new THREE.Group();
         group.position.set(x, 0, z - 0.3);
         const movers: StationRef["movers"] = [];
-        for (const part of stationParts(i)) {
+        for (const part of stationParts(shapeFor(plant.stations[i].name, i))) {
           const mesh = outlined(part, fill, edges, group);
           if (part.mover) {
             movers.push({ mesh, base: part.mover.axis === "x" ? part.at[0] : part.at[1], mover: part.mover });
@@ -481,6 +567,19 @@ export default function TwinView({
       disposables.push(label.material as THREE.Material, label.geometry);
     });
 
+    // A tugger cart running along the back aisle. Illustration only.
+    const cart = new THREE.Group();
+    const cartBody = new THREE.Mesh(track(new THREE.BoxGeometry(1.1, 0.4, 0.6)), workerFill);
+    cartBody.position.y = 0.32;
+    cartBody.castShadow = true;
+    const cartLoad = new THREE.Mesh(track(new THREE.BoxGeometry(0.5, 0.35, 0.45)), railFill);
+    cartLoad.position.set(-0.2, 0.7, 0);
+    cartLoad.castShadow = true;
+    cart.add(cartBody, cartLoad);
+    cart.position.set(0, 0, -floorD / 2 + 0.9);
+    scene.add(cart);
+    const cartReach = floorW / 2 - 2;
+
     // Units: one instanced box per simulated unit on the floor right now.
     const machineTotal = plant.stations.reduce((n, s) => n + s.parallelUnits, 0);
     const maxUnits = lines * (machineTotal * 2 + (stationCount - 1) * Math.max(1, bufferCapacity)) + 8;
@@ -534,7 +633,7 @@ export default function TwinView({
     const observer = new ResizeObserver(resize);
     observer.observe(mount);
     resize();
-    resetView();
+    setView("floor");
 
     let visible = true;
     const io = new IntersectionObserver(([entry]) => {
@@ -575,6 +674,8 @@ export default function TwinView({
         }
         if (ref.worker) ref.worker.rotation.y = working ? Math.sin(wall * 1.4 + ref.station * 2) * 0.5 : 0;
       }
+
+      if (playingRef.current) cart.position.x = Math.sin(wall * 0.35) * cartReach;
 
       // Place every unit that is on the floor at second T.
       let n = 0;
@@ -714,9 +815,13 @@ export default function TwinView({
             </button>
           ))}
         </div>
-        <button type="button" className="crew-btn" onClick={() => resetViewRef.current()}>
-          Reset view
-        </button>
+        <div className="twin-speeds" role="group" aria-label="Camera view">
+          {VIEWS.map((view) => (
+            <button key={view.id} type="button" className="crew-btn" onClick={() => viewRef.current(view.id)}>
+              {view.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="twin-chip twin-bl">
@@ -797,7 +902,7 @@ export default function TwinView({
             <p>
               Cycle times, yields, downtime and buffer sizes are planning assumptions, not measured
               performance. In the model a transfer takes no time, so the short glide between
-              stations is an illustration, as are the workers, the moving machine parts, the
+              stations is an illustration, as are the workers, the cart, the moving machine parts, the
               station shapes and the floor spacing.
             </p>
             <p>Unofficial fan or learning project, not affiliated with SpaceX.</p>
