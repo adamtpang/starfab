@@ -94,6 +94,9 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
   let unitsScrap = 0;
   let wipSum = 0;
   let rawEvents: DowntimeEvent[] = [];
+  const bufferCapacity = Math.max(0, Math.floor(plant.bufferCapacity ?? 0));
+  const bufferUnitSeconds: number[] = new Array(Math.max(0, stations.length - 1)).fill(0);
+  const bufferFullSeconds: number[] = new Array(Math.max(0, stations.length - 1)).fill(0);
 
   // Display data. Good units per scheduled hour (all lines), and a per-minute
   // state record for line 1 only, so the dashboard can draw a state timeline.
@@ -134,6 +137,8 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
     );
     const processSeconds = stations.map((s) => s.cycleTimeSeconds / s.performance);
     const completions = stations.map(() => 0);
+    // buffers[i] is the number of units waiting between station i and i + 1.
+    const buffers: number[] = new Array(Math.max(0, stations.length - 1)).fill(0);
     let lineStarted = 0;
     let lineLeft = 0; // units that left the line as good or scrap
 
@@ -151,6 +156,14 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
           m.finished = false;
           return true;
         }
+      }
+      // No machine can take it. Park it in the buffer after station i if
+      // there is room (finite buffer, capacity 0 by default, A14).
+      if (buffers[i] < bufferCapacity) {
+        buffers[i]++;
+        m.hasUnit = false;
+        m.finished = false;
+        return true;
       }
       return false;
     };
@@ -221,9 +234,21 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
             tally.idleSeconds++;
             record(line, i, t, IDLE);
           }
+          // An empty, up machine pulls the next unit from the buffer in
+          // front of it. Like a direct transfer, work begins on the next tick.
+          if (!m.hasUnit && i > 0 && buffers[i - 1] > 0) {
+            buffers[i - 1]--;
+            m.hasUnit = true;
+            m.finished = false;
+            m.remaining = processSeconds[i];
+          }
         }
       }
 
+      for (let g = 0; g < buffers.length; g++) {
+        bufferUnitSeconds[g] += buffers[g];
+        if (bufferCapacity > 0 && buffers[g] >= bufferCapacity) bufferFullSeconds[g]++;
+      }
       wipSum += lineStarted - lineLeft;
     }
 
@@ -314,6 +339,15 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
     downtimeEvents,
     downtimeByReason,
     goodByHour,
+    buffers: {
+      capacity: bufferCapacity,
+      gaps: bufferUnitSeconds.map((unitSeconds, g) => ({
+        afterStationId: stations[g].id,
+        // Averages are per line, over the whole shift.
+        average: P * scheduledSeconds > 0 ? unitSeconds / (P * scheduledSeconds) : 0,
+        fullShare: P * scheduledSeconds > 0 ? bufferFullSeconds[g] / (P * scheduledSeconds) : 0,
+      })),
+    },
     stateTimeline: {
       lineId: 0,
       binSeconds: TIMELINE_BIN_SECONDS,

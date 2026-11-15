@@ -3,13 +3,13 @@ import type { Plant, SimResult } from "../types";
 import { Detail } from "./Detail";
 import { Assumption } from "./Tag";
 
-// Detail F. Station utilization. Busy, blocked, and down are separate
+// Detail G. Station utilization. Busy, blocked, and down are separate
 // segments. The bottleneck row gets a border and a text label, never a logo.
 export function StationTable({ plant, sim }: { plant: Plant; sim: SimResult }) {
   const lines = plant.parallelLines;
   return (
     <Detail
-      letter="F"
+      letter="G"
       title="Station utilization"
       note={`share of scheduled machine time, all ${lines} ${lines === 1 ? "line" : "lines"}`}
       span="full"

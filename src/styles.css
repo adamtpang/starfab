@@ -521,6 +521,23 @@ svg text.g-flag {
   stroke-width: 1.4;
 }
 
+.g-break {
+  fill: none;
+  stroke: var(--attention);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+.g-now {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.4;
+}
+
+.g-dot-ok {
+  fill: var(--ink);
+}
+
 .g-track {
   fill: none;
   stroke: var(--rule);
@@ -592,6 +609,45 @@ svg text.g-flag {
 .sw-blocked {
   height: 0.3rem;
   vertical-align: 0.12rem;
+}
+
+/* Ramp test */
+
+.ramp {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1fr) minmax(0, 2.4fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.ramp-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.ramp-verdict {
+  margin: 0.8rem 0 0;
+  font-family: var(--display);
+  font-weight: 300;
+  font-size: 1.25rem;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+.ramp-warn {
+  color: var(--attention);
+}
+
+.ramp-chart {
+  min-width: 0;
+  transition: opacity 0.15s;
+}
+
+@media (max-width: 54rem) {
+  .ramp {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* OEE gauges */

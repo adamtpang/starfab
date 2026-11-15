@@ -24,6 +24,11 @@ The look is "Vacuum drafting" with the Weld arc palette, chosen by Adam on 2026-
 - `data/plant.seed.json`: seed plant, with a source on every number
 - `src/engine/`: `rng.ts`, `formulas.ts` (analytical calculator), `downtime.ts` (event calendar), `simulate.ts` (tick simulator), `engine.test.ts`
 - `src/applyLevers.ts`: what-if levers, with clamping and notes
+- `src/ramp.ts`: ramp test, sweeps one lever and finds where the line starts holding takt
+
+## Beyond the tech spec
+
+Added on 2026-11-14 at Adam's request: finite buffers between stations (`Plant.bufferCapacity`, seed value 0 per A14, lever range 0 to 20), the ramp test, and two display fields on `SimResult` (`goodByHour`, `stateTimeline`). Fixtures F1 to F3 are unchanged and still pass.
 - `src/ui/`: dashboard components
 
 ## Known spec note: bottleneck rule

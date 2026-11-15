@@ -7,6 +7,7 @@
   "parallelLines": 4,
   "rngSeed": 1,
   "meanDowntimeEventSeconds": 900,
+  "bufferCapacity": 0,
   "sources": {
     "annualDemandKits": {
       "kind": "public",
@@ -55,10 +56,10 @@
       "id": "A18",
       "note": "Reasons cycle breakdown, changeover, material_wait, quality_hold at 4, 3, 2, 1 per 10 events. Not plant data."
     },
-    "buffers": {
+    "bufferCapacity": {
       "kind": "assumption",
       "id": "A14",
-      "note": "Inter-station buffers are ignored (queue capacity 0)."
+      "note": "Inter-station buffers are ignored (queue capacity 0). A what-if lever can raise this."
     },
     "endOfShiftWip": {
       "kind": "assumption",

@@ -28,6 +28,8 @@ npm test
 npm run build
 ```
 
+Two things go beyond the original tech spec. A buffer size lever gives each gap between stations a finite buffer (the spec default of zero, `A14`, is still the seed value). A ramp test sweeps one lever (line speed, buffer size, availability, or line count) across a range, runs a full seeded shift at each point, and marks where the line starts holding takt. The look is documented in [docs/design-language.md](docs/design-language.md).
+
 There is no backend, no login, and no network call at runtime. `npm run build` writes a static site to `dist/`.
 
 ## Specs

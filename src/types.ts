@@ -46,6 +46,7 @@ export interface Plant {
   parallelLines: number; // A7
   rngSeed: number; // A16, default 1
   meanDowntimeEventSeconds: number; // A17, default 900
+  bufferCapacity?: number; // units between adjacent stations, A14 default 0
   stations: Station[];
   shifts: ShiftPattern[];
   sources?: Record<string, Source>;
@@ -59,6 +60,7 @@ export interface WhatIfLevers {
   availability?: number;
   scheduledHours?: number;
   seed?: number;
+  bufferCapacity?: number;
   cycleTimeSeconds?: Partial<Record<StationId, number>>;
   firstPassYieldByStation?: Partial<Record<StationId, number>>;
   availabilityByStation?: Partial<Record<StationId, number>>;
@@ -138,6 +140,10 @@ export interface SimResult {
   >;
   // Display data, beyond the tech-spec shape.
   goodByHour: number[]; // good units at pack-out per scheduled hour, all lines
+  buffers: {
+    capacity: number;
+    gaps: { afterStationId: StationId; average: number; fullShare: number }[];
+  };
   stateTimeline: StateTimeline;
 }
 

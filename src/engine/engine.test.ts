@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { applyLevers, sanitizeLevers } from "../applyLevers";
 import { SEED_PLANT } from "../plant";
+import { runRamp } from "../ramp";
 import type { Plant, Station, StationId } from "../types";
 import { eventDurations, placeMachineEvents } from "./downtime";
 import { computeClosedForm } from "./formulas";
@@ -269,6 +270,76 @@ describe("blocking with no buffers (A14)", () => {
     expect(r.stationStats.S1.blockedSeconds).toBeGreaterThan(0);
     expect(r.unitsGood + r.unitsScrap + r.wipEnd).toBe(r.unitsStarted);
     expect(r.unitsGood).toBe(2); // S2 runs t = 10 to 29 and t = 30 to 49
+  });
+});
+
+describe("finite buffers", () => {
+  it("leaves the exact fixtures unchanged when capacity is 0 or unused", () => {
+    const r = simulateShift({ ...tinyPlant(), bufferCapacity: 5 }, { yieldMode: "scripted" });
+    expect(r.unitsStarted).toBe(6);
+    expect(r.unitsGood).toBe(5);
+    expect(r.wipEnd).toBe(1);
+    expect(r.buffers.gaps[0].average).toBe(0); // balanced line never queues
+  });
+
+  it("lets a fast station keep working by filling the buffer, then blocks when full", () => {
+    const plant = { ...tinyPlant(), bufferCapacity: 2 };
+    plant.stations[1].cycleTimeSeconds = 20;
+    const r = simulateShift(plant, { yieldMode: "scripted" });
+    // S1 finishes at the end of ticks 9, 19, 29, 39, 49, 59. S2 takes one
+    // every 20 s from t = 10 and finishes at 29 and 49. The buffer absorbs
+    // the difference, so S1 never waits until its sixth unit finds the
+    // buffer full at the very end of the shift.
+    expect(r.unitsStarted).toBe(6);
+    expect(r.stationStats.S1.outflowGood).toBe(6);
+    expect(r.unitsGood).toBe(2);
+    expect(r.stationStats.S1.blockedSeconds).toBe(0);
+    expect(r.wipEnd).toBe(4); // one on S2, two in the buffer, one held on S1
+    expect(r.unitsGood + r.unitsScrap + r.wipEnd).toBe(r.unitsStarted);
+    expect(r.buffers.capacity).toBe(2);
+    expect(r.buffers.gaps[0].average).toBeGreaterThan(0);
+  });
+
+  it("raises good units on the default plant and still conserves units", () => {
+    const base = simulateShift(SEED_PLANT);
+    const buffered = simulateShift(applyLevers(SEED_PLANT, { bufferCapacity: 5 }));
+    expect(base.buffers.capacity).toBe(0);
+    expect(buffered.unitsGood).toBeGreaterThan(base.unitsGood);
+    expect(buffered.unitsGood + buffered.unitsScrap + buffered.wipEnd).toBe(buffered.unitsStarted);
+    expect(buffered.unitsGood).toBeLessThanOrEqual(buffered.analytical.unitsGood);
+    expect(buffered.buffers.gaps.length).toBe(5);
+    for (const g of buffered.buffers.gaps) {
+      expect(g.average).toBeGreaterThanOrEqual(0);
+      expect(g.average).toBeLessThanOrEqual(5);
+    }
+  });
+});
+
+describe("ramp test", () => {
+  it("finds the line speed where the default plant starts holding takt", () => {
+    const r = runRamp(SEED_PLANT, {}, "speed");
+    expect(r.points.length).toBe(10);
+    expect(r.points[3].value).toBe(1);
+    expect(r.points[3].gap).toBeLessThan(0);
+    expect(r.verdict).toBe("crosses");
+    expect(r.breakValue).not.toBeNull();
+    expect(r.breakValue!).toBeLessThan(1);
+    expect(r.breakValue!).toBeGreaterThan(0.3);
+    // Faster cycles never make fewer good units.
+    for (let i = 1; i < r.points.length; i++) {
+      expect(r.points[i].unitsGood).toBeGreaterThanOrEqual(r.points[i - 1].unitsGood);
+    }
+  });
+
+  it("reports a break when no buffer size in range reaches takt", () => {
+    const r = runRamp(SEED_PLANT, {}, "buffer");
+    expect(r.verdict).toBe("breaks");
+    expect(r.breakValue).toBeNull();
+    expect(r.closest.unitsGood).toBeGreaterThan(r.points[0].unitsGood);
+  });
+
+  it("is deterministic", () => {
+    expect(runRamp(SEED_PLANT, {}, "lines")).toEqual(runRamp(SEED_PLANT, {}, "lines"));
   });
 });
 

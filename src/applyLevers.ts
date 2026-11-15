@@ -11,6 +11,7 @@ export const LEVER_LIMITS = {
   availability: { min: 0, max: 1 },
   scheduledHours: { min: 1, max: 16 },
   seed: { min: 0, max: 4294967295 },
+  bufferCapacity: { min: 0, max: 20 },
   stationCycleTimeSeconds: { min: 1, max: 120 },
 } as const;
 
@@ -71,6 +72,7 @@ export function sanitizeLevers(levers: WhatIfLevers): SanitizedLevers {
     availability: clamp("Availability", levers.availability, L.availability.min, L.availability.max, notes),
     scheduledHours: clamp("Scheduled hours", levers.scheduledHours, L.scheduledHours.min, L.scheduledHours.max, notes),
     seed: clamp("Seed", levers.seed, L.seed.min, L.seed.max, notes, true),
+    bufferCapacity: clamp("Buffer size", levers.bufferCapacity, L.bufferCapacity.min, L.bufferCapacity.max, notes, true),
     cycleTimeSeconds: clampMap("cycle time", levers.cycleTimeSeconds, L.stationCycleTimeSeconds.min, L.stationCycleTimeSeconds.max, notes),
     firstPassYieldByStation: clampMap("yield", levers.firstPassYieldByStation, 0, 1, notes),
     availabilityByStation: clampMap("availability", levers.availabilityByStation, 0, 1, notes),
@@ -88,6 +90,7 @@ export function applyLevers(plant: Plant, levers: WhatIfLevers): Plant {
     parallelLines: l.parallelLines ?? plant.parallelLines,
     annualDemandKits: l.annualDemandKits ?? plant.annualDemandKits,
     rngSeed: l.seed ?? plant.rngSeed,
+    bufferCapacity: l.bufferCapacity ?? plant.bufferCapacity ?? 0,
     stations: plant.stations.map((s) => ({
       ...s,
       cycleTimeSeconds:

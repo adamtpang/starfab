@@ -10,6 +10,7 @@ export type LeverKey =
   | "firstPassYield"
   | "availability"
   | "scheduledHours"
+  | "bufferCapacity"
   | "seed";
 
 export type LeverInputs = Record<LeverKey, string>;
@@ -179,6 +180,16 @@ export function Levers({
         hint="1 to 16. Changes planned units, downtime budgets, and all shift totals."
       >
         {number("scheduledHours", 0.5, L.scheduledHours.min, L.scheduledHours.max)}
+      </Row>
+
+      <Row
+        id="lever-bufferCapacity"
+        label="Buffer size"
+        tag={<Assumption id="A14" />}
+        hint="0 to 20 units between stations. Buffers let stations keep working through a neighbor's outage."
+      >
+        {slider("bufferCapacity", L.bufferCapacity.min, L.bufferCapacity.max, 1, "Buffer size")}
+        {number("bufferCapacity", 1, L.bufferCapacity.min, L.bufferCapacity.max)}
       </Row>
 
       <Row

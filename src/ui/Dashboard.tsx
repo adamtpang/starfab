@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import { DEMAND_CITATIONS, DEMAND_DATE, SHIFT_CITATION } from "../citations";
 import { fmtClock, fmtHours, fmtInt, fmtNum, fmtPct, fmtSigned } from "../lib/format";
-import type { CrewId, Plant, SimResult } from "../types";
+import type { CrewId, Plant, SimResult, WhatIfLevers } from "../types";
 import { HourBoard, LineElevation, StateTimeline } from "./Charts";
 import { Detail } from "./Detail";
 import { DowntimePareto } from "./DowntimePareto";
+import { RampTest } from "./RampTest";
 import { StationTable } from "./StationTable";
 import { Assumption, Derived, ModelOutput, Sourced } from "./Tag";
 
@@ -55,11 +56,13 @@ function Gauge({ label, value }: { label: string; value: number }) {
 export function Dashboard({
   plant,
   sim,
+  levers,
   crew,
   onCrew,
 }: {
   plant: Plant;
   sim: SimResult;
+  levers: WhatIfLevers;
   crew: CrewId;
   onCrew: (crew: CrewId) => void;
 }) {
@@ -207,15 +210,20 @@ export function Dashboard({
             <StateTimeline plant={plant} sim={sim} shift={shift} />
           </div>
           <p className="fine">
-            With no buffers between stations <Assumption id="A14" />, a station that goes down
-            soon blocks everything upstream and starves everything downstream. Downtime events
-            are about 15 minutes each <Assumption id="A17" />.
+            {sim.buffers.capacity === 0
+              ? "With no buffers between stations"
+              : `With room for only ${sim.buffers.capacity} ${sim.buffers.capacity === 1 ? "unit" : "units"} between stations`}{" "}
+            <Assumption id="A14" />, a station that goes down soon blocks everything upstream and
+            starves everything downstream. Raise the buffer size lever to see the marks thin out.
+            Downtime events are about 15 minutes each <Assumption id="A17" />.
           </p>
         </Detail>
 
+        <RampTest plant={plant} levers={levers} crew={crew} />
+
         <StationTable plant={plant} sim={sim} />
 
-        <Detail letter="G" title="Shift figures" span="full">
+        <Detail letter="H" title="Shift figures" span="full">
           <dl className="figures">
             <Figure label="Units started" value={fmtInt(sim.unitsStarted)} tag={<ModelOutput />} />
             <Figure
@@ -304,8 +312,9 @@ export function Dashboard({
           <p className="fine">
             Analytical capacity (rate model, no blocking, no leftover WIP) gives{" "}
             {fmtInt(a.unitsGood)} good units, {fmtSigned(a.aheadOrBehind)} versus takt. The
-            simulated shift lands at or below this. With no buffers <Assumption id="A14" />, six
-            separate downtime budgets stack up instead of overlapping. Cycle times also round up
+            simulated shift lands at or below this. With small or no buffers{" "}
+            <Assumption id="A14" />, six separate downtime budgets stack up instead of
+            overlapping. Cycle times also round up
             to whole 1 second ticks <Assumption id="A15" />, unfinished units stay on the line as
             WIP <Assumption id="A19" />, and S1 starts a unit whenever it is free{" "}
             <Assumption id="A20" />.

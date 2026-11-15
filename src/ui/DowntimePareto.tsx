@@ -4,6 +4,14 @@ import { DOWNTIME_REASONS } from "../types";
 import { Detail } from "./Detail";
 import { Assumption } from "./Tag";
 
+// Short axis labels. The table under the chart has the full names.
+const SHORT_LABELS: Record<string, string> = {
+  breakdown: "BREAK",
+  changeover: "CHANGE",
+  material_wait: "MATL",
+  quality_hold: "QUAL",
+};
+
 // Detail D. Downtime Pareto by reason, largest first, with a cumulative line.
 export function DowntimePareto({ sim }: { sim: SimResult }) {
   const rows = DOWNTIME_REASONS.map((reason) => ({ reason, ...sim.downtimeByReason[reason] }))
@@ -35,7 +43,7 @@ export function DowntimePareto({ sim }: { sim: SimResult }) {
                 <g key={r.reason}>
                   <rect className="g-bar g-bar-down" x={x0 + i * w + 8} y={y0 - h} width={w - 16} height={h} />
                   <text className="g-dim" x={x0 + i * w + w / 2} y={y0 + 15} textAnchor="middle">
-                    {REASON_LABELS[r.reason].toUpperCase()}
+                    {SHORT_LABELS[r.reason]}
                   </text>
                 </g>
               );

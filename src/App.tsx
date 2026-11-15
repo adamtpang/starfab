@@ -27,6 +27,7 @@ function defaultInputs(): LeverInputs {
     firstPassYield: String(s0.firstPassYield),
     availability: String(s0.availability),
     scheduledHours: String(SEED_PLANT.shifts[0].scheduledHours),
+    bufferCapacity: String(SEED_PLANT.bufferCapacity ?? 0),
     seed: String(SEED_PLANT.rngSeed),
   };
 }
@@ -59,6 +60,7 @@ function toLevers(inputs: LeverInputs, stationInputs: StationInputs): WhatIfLeve
     firstPassYield: parse(inputs.firstPassYield),
     availability: parse(inputs.availability),
     scheduledHours: parse(inputs.scheduledHours),
+    bufferCapacity: parse(inputs.bufferCapacity),
     seed: parse(inputs.seed),
     cycleTimeSeconds,
     firstPassYieldByStation,
@@ -71,11 +73,11 @@ export default function App() {
   const [stationInputs, setStationInputs] = useState<StationInputs>(defaultStationInputs);
   const [crew, setCrew] = useState<CrewId>("A");
 
-  const { plant, notes, sim } = useMemo(() => {
+  const { plant, notes, sim, levers } = useMemo(() => {
     const raw = toLevers(inputs, stationInputs);
-    const { notes } = sanitizeLevers(raw);
+    const { notes, levers } = sanitizeLevers(raw);
     const plant = applyLevers(SEED_PLANT, raw);
-    return { plant, notes, sim: simulateShift(plant, { crew }) };
+    return { plant, notes, levers, sim: simulateShift(plant, { crew }) };
   }, [inputs, stationInputs, crew]);
 
   const dirty =
@@ -92,7 +94,7 @@ export default function App() {
         </header>
 
         <main className="layout">
-          <Dashboard plant={plant} sim={sim} crew={crew} onCrew={setCrew} />
+          <Dashboard plant={plant} sim={sim} levers={levers} crew={crew} onCrew={setCrew} />
           <Levers
             inputs={inputs}
             onChange={(key: LeverKey, value: string) => setInputs((p) => ({ ...p, [key]: value }))}

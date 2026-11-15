@@ -33,6 +33,25 @@ export function LineElevation({ plant, sim }: { plant: Plant; sim: SimResult }) 
         .join(". ")}.`}
     >
       <path className="g-center" d={centerline} />
+      {/* Buffer between each pair of stations: a small bin, filled to its
+          average level. Drawn only when the buffer lever is above zero. */}
+      {sim.buffers.capacity > 0 &&
+        sim.buffers.gaps.map((gap, i) => {
+          const b = blocks[i];
+          if (!b || !blocks[i + 1]) return null;
+          const bx = b.x + 90;
+          const by = base - 4;
+          const fill = Math.max(0, Math.min(1, gap.average / sim.buffers.capacity)) * 28;
+          return (
+            <g key={gap.afterStationId}>
+              <rect className="g-track" x={bx} y={by - 28} width={12} height={28} />
+              <rect className="g-run" x={bx} y={by - fill} width={12} height={fill} />
+              <text className="g-dim" x={bx + 6} y={by + 13} textAnchor="middle">
+                {gap.average.toFixed(1)}
+              </text>
+            </g>
+          );
+        })}
       {blocks.map((b) => {
         const { x, top } = b;
         const leaderY = top - 42;
