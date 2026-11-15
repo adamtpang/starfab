@@ -42,7 +42,7 @@ The space half is the setting, not the content: the sheet floats on a deep blue-
 ## Rules (each one checkable on a screenshot)
 
 1. **One sheet.** The dashboard is a single bordered drawing with a title block on top. Regions inside it are lettered details (Detail A, Detail B), not floating cards.
-2. **Lines, not surfaces.** Shapes are 1 px cyan outlines with dark fills. No shadows, no rounded corners, no gradients inside a detail.
+2. **Lines, not surfaces.** Shapes are 1 px outlines over plain fills. No rounded corners and no gradients inside a detail. The one exception is the floor twin, which is lit and casts soft shadows so the floor reads as a place.
 3. **Violet asks for attention, red means stopped.** Violet marks the bottleneck, blocked time, the plan line and a behind-takt status. Red marks downtime only. Nothing else uses either color.
 4. **Every status color has a second cue.** The bottleneck has a text label, behind takt has a triangle mark, and blocked marks are half the height of down marks.
 5. **Big numbers are thin.** Headline figures are Exo 2 at weight 200 or 300 in white. Labels are small mono capitals in blue.
@@ -73,7 +73,7 @@ Switch with the single light or dark mode button in the masthead, or open the pa
 
 ## Signature element
 
-The floor twin at the top of the sheet: every line and station as an outlined 3D floor, replayed as a time-lapse of the simulated shift, with small panels laid over it (clock, counters, shift-time scrubber, model basis). Machine outlines follow rule 3: cyan running, violet blocked, red down. The fills stay dark, so it still reads as a drawing, not a render.
+The floor twin at the top of the sheet: every line and station as an outlined 3D floor, replayed as a time-lapse of the simulated shift, with small panels laid over it (clock, counters, shift-time scrubber, model basis). Machine outlines and stack lights follow rule 3: cyan running, violet blocked, red down. Every small box on the floor is one simulated unit, placed from the simulator's own record, so the picture is a replay and not decoration. The floor is lit, with soft shadows, small workers and a few moving machine parts, all of which the model basis panel labels as illustration.
 
 The layout of that view (a 3D floor with overlay panels and a "model basis" note) follows the convention of factory digital-twin products. Adam asked for it on Nov 14, 2026 after reviewing public twin simulations. The page carries no other company's name, logo or artwork, and the model basis panel says plainly that the line is fictional.
 

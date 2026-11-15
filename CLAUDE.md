@@ -32,7 +32,7 @@ The look is "Vacuum drafting" with the Weld arc palette, chosen by Adam on 2026-
 
 ## Beyond the tech spec
 
-Added on 2026-11-14 at Adam's request: finite buffers between stations (`Plant.bufferCapacity`, seed value 0 per A14, lever range 0 to 20), the ramp test, the 3D floor twin, and display fields on `SimResult` (`goodByHour`, `stateTimeline`, `stateTimelines`, `flowByMinute`). Fixtures F1 to F3 are unchanged and still pass.
+Added on 2026-11-14 at Adam's request: finite buffers between stations (`Plant.bufferCapacity`, seed value 0 per A14, lever range 0 to 20), the ramp test, the 3D floor twin, joins, a unit trace (`SimResult.trace`, one row per stay on a machine or in a buffer, which the floor twin replays), and display fields on `SimResult` (`goodByHour`, `stateTimeline`, `stateTimelines`, `flowByMinute`). Fixtures F1 to F3 are unchanged and still pass.
 
 ## Known spec note: bottleneck rule
 

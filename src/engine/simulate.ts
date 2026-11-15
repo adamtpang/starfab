@@ -4,6 +4,7 @@
 // still on the line at the end of the shift are WIP (A19), and S1 starts a
 // new unit whenever it is idle and up (A20).
 
+import { VISIT_OUTCOME } from "../types";
 import type {
   CrewId,
   DowntimeEvent,
@@ -15,6 +16,7 @@ import type {
   StateTimeline,
   StationId,
   StationStats,
+  UnitTrace,
 } from "../types";
 import { DOWNTIME_REASONS } from "../types";
 import { assignReasons, buildLineEvents } from "./downtime";
@@ -53,12 +55,16 @@ export interface SimOptions {
   // says otherwise. completionIndex is 1-based, per station, per line.
   yieldMode?: "bernoulli" | "scripted";
   scriptedYield?: ScriptedYield;
+  // Record every unit's path (default true). The ramp test turns it off.
+  trace?: boolean;
 }
 
 interface Machine {
   hasUnit: boolean;
   finished: boolean; // true when a finished unit is waiting to move on (blocked)
   remaining: number;
+  unit: number; // id of the unit on the machine
+  visit: number; // index of that unit's current row in the visit table
 }
 
 interface Tally {
@@ -97,6 +103,20 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
   let unitsMerged = 0; // parts absorbed into another part at a join
   let wipSum = 0;
   let rawEvents: DowntimeEvent[] = [];
+
+  // Unit trace. One row per stay on a machine, one row per stay in a
+  // buffer. Times are in seconds from the start of the shift: work in tick
+  // t runs from t to t + 1, so a unit that finishes in tick t is done at
+  // t + 1. This is what lets the floor twin replay real simulated units.
+  const tracing = options.trace !== false;
+  const trace: UnitTrace = {
+    visits: { unit: [], line: [], station: [], machine: [], enter: [], done: [], leave: [], outcome: [] },
+    waits: { unit: [], line: [], afterStation: [], from: [], to: [] },
+  };
+  const V = trace.visits;
+  const W = trace.waits;
+  const unitLastVisit: number[] = [];
+  let nextUnit = 0;
   const bufferCapacity = Math.max(0, Math.floor(plant.bufferCapacity ?? 0));
   const bufferUnitSeconds: number[] = new Array(Math.max(0, stations.length - 1)).fill(0);
   const bufferFullSeconds: number[] = new Array(Math.max(0, stations.length - 1)).fill(0);
@@ -144,14 +164,68 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
         hasUnit: false,
         finished: false,
         remaining: 0,
+        unit: -1,
+        visit: -1,
       })),
     );
     const processSeconds = stations.map((s) => s.cycleTimeSeconds / s.performance);
     const completions = stations.map(() => 0);
-    // buffers[i] is the number of units waiting between station i and i + 1.
-    const buffers: number[] = new Array(Math.max(0, stations.length - 1)).fill(0);
+    // Units waiting between station i and the station it feeds, first in
+    // first out. queueWaits holds each one's row in the wait table.
+    const queueUnits: number[][] = stations.slice(0, -1).map(() => []);
+    const queueWaits: number[][] = stations.slice(0, -1).map(() => []);
     let lineStarted = 0;
     let lineLeft = 0; // units that left the line as good or scrap
+
+    // Put a unit on machine v of station i. It starts work at second `enter`.
+    const place = (unit: number, i: number, v: number, enter: number) => {
+      const m = machines[i][v];
+      m.hasUnit = true;
+      m.finished = false;
+      m.remaining = processSeconds[i];
+      m.unit = unit;
+      if (tracing) {
+        m.visit = V.unit.length;
+        unitLastVisit[unit] = m.visit;
+        V.unit.push(unit);
+        V.line.push(line);
+        V.station.push(i);
+        V.machine.push(v);
+        V.enter.push(enter);
+        V.done.push(-1);
+        V.leave.push(-1);
+        V.outcome.push(VISIT_OUTCOME.open);
+      }
+    };
+
+    // Take the unit off machine m at the end of tick t.
+    const release = (m: Machine, t: number, outcome: number) => {
+      if (tracing) {
+        V.leave[m.visit] = t + 1;
+        V.outcome[m.visit] = outcome;
+      }
+      m.hasUnit = false;
+      m.finished = false;
+    };
+
+    const toBuffer = (i: number, m: Machine, t: number) => {
+      queueUnits[i].push(m.unit);
+      if (tracing) {
+        queueWaits[i].push(W.unit.length);
+        W.unit.push(m.unit);
+        W.line.push(line);
+        W.afterStation.push(i);
+        W.from.push(t + 1);
+        W.to.push(-1);
+      }
+      release(m, t, VISIT_OUTCOME.moved);
+    };
+
+    const fromBuffer = (i: number, t: number): number => {
+      const unit = queueUnits[i].shift() as number;
+      if (tracing) W.to[queueWaits[i].shift() as number] = t + 1;
+      return unit;
+    };
 
     // A join starts a unit when it has one part ready from every stream
     // that feeds it. A part is ready if it sits in that stream's buffer, or
@@ -163,7 +237,7 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
         const holders: (Machine | null)[] = [];
         let ready = true;
         for (const a of inputs[j]) {
-          if (buffers[a] > 0) {
+          if (queueUnits[a].length > 0) {
             holders.push(null);
             continue;
           }
@@ -175,19 +249,19 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
           holders.push(machines[a][u]);
         }
         if (!ready) return;
-        inputs[j].forEach((a, k) => {
+        const parts = inputs[j].map((a, k) => {
           const holder = holders[k];
-          if (holder) {
-            holder.hasUnit = false;
-            holder.finished = false;
-          } else {
-            buffers[a]--;
-          }
+          if (!holder) return fromBuffer(a, t);
+          const unit = holder.unit;
+          release(holder, t, VISIT_OUTCOME.moved);
+          return unit;
         });
-        target.hasUnit = true;
-        target.finished = false;
-        target.remaining = processSeconds[j];
-        // Several parts became one unit.
+        // Several parts become one unit. It keeps the first part's id, and
+        // the other parts end here.
+        if (tracing) {
+          for (const part of parts.slice(1)) V.outcome[unitLastVisit[part]] = VISIT_OUTCOME.absorbed;
+        }
+        place(parts[0], j, v, t + 1);
         const absorbed = inputs[j].length - 1;
         lineLeft += absorbed;
         unitsMerged += absorbed;
@@ -202,33 +276,24 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
       if (inputs[j].length > 1) {
         // Feeding a join: wait in the buffer if there is room, otherwise on
         // the machine, then see whether the join can now start.
-        if (buffers[i] < bufferCapacity) {
-          buffers[i]++;
-          m.hasUnit = false;
-          m.finished = false;
-        } else {
-          m.finished = true;
-        }
+        if (queueUnits[i].length < bufferCapacity) toBuffer(i, m, t);
+        else m.finished = true;
         tryJoinStart(j, t);
         return !m.hasUnit;
       }
       const target = machines[j];
       for (let v = 0; v < target.length; v++) {
         if (!target[v].hasUnit && down[j][v][t] === 0) {
-          target[v].hasUnit = true;
-          target[v].finished = false;
-          target[v].remaining = processSeconds[j];
-          m.hasUnit = false;
-          m.finished = false;
+          const unit = m.unit;
+          release(m, t, VISIT_OUTCOME.moved);
+          place(unit, j, v, t + 1);
           return true;
         }
       }
       // No machine can take it. Park it in the buffer after station i if
       // there is room (finite buffer, capacity 0 by default, A14).
-      if (buffers[i] < bufferCapacity) {
-        buffers[i]++;
-        m.hasUnit = false;
-        m.finished = false;
+      if (queueUnits[i].length < bufferCapacity) {
+        toBuffer(i, m, t);
         return true;
       }
       return false;
@@ -242,9 +307,7 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
         const first = machines[src];
         for (let u = 0; u < first.length; u++) {
           if (!first[u].hasUnit && down[src][u][t] === 0) {
-            first[u].hasUnit = true;
-            first[u].finished = false;
-            first[u].remaining = processSeconds[src];
+            place(nextUnit++, src, u, t);
             lineStarted++;
             flowByMinute.started[Math.floor(t / TIMELINE_BIN_SECONDS)]++;
           }
@@ -270,6 +333,7 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
             if (m.remaining <= 0) {
               completions[i]++;
               tally.outflowTotal++;
+              if (tracing) V.done[m.visit] = t + 1;
               const good = scripted
                 ? options.scriptedYield
                   ? options.scriptedYield(station.id, completions[i])
@@ -280,7 +344,7 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
                 unitsScrap++;
                 flowByMinute.scrap[Math.floor(t / TIMELINE_BIN_SECONDS)]++;
                 lineLeft++;
-                m.hasUnit = false;
+                release(m, t, VISIT_OUTCOME.scrap);
               } else {
                 tally.outflowGood++;
                 if (i === lastIndex) {
@@ -288,7 +352,7 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
                   goodByHour[Math.floor(t / 3600)]++;
                   flowByMinute.good[Math.floor(t / TIMELINE_BIN_SECONDS)]++;
                   lineLeft++;
-                  m.hasUnit = false;
+                  release(m, t, VISIT_OUTCOME.exit);
                 } else if (!tryTransfer(i, m, t)) {
                   m.finished = true; // blocked, holds the finished unit
                 }
@@ -308,20 +372,17 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
           }
           // An empty, up machine pulls the next unit from the buffer in
           // front of it. Like a direct transfer, work begins on the next tick.
-          if (!m.hasUnit && inputs[i].length === 1 && buffers[inputs[i][0]] > 0) {
-            buffers[inputs[i][0]]--;
-            m.hasUnit = true;
-            m.finished = false;
-            m.remaining = processSeconds[i];
+          if (!m.hasUnit && inputs[i].length === 1 && queueUnits[inputs[i][0]].length > 0) {
+            place(fromBuffer(inputs[i][0], t), i, u, t + 1);
           } else if (!m.hasUnit && inputs[i].length > 1) {
             tryJoinStart(i, t);
           }
         }
       }
 
-      for (let g = 0; g < buffers.length; g++) {
-        bufferUnitSeconds[g] += buffers[g];
-        if (bufferCapacity > 0 && buffers[g] >= bufferCapacity) bufferFullSeconds[g]++;
+      for (let g = 0; g < queueUnits.length; g++) {
+        bufferUnitSeconds[g] += queueUnits[g].length;
+        if (bufferCapacity > 0 && queueUnits[g].length >= bufferCapacity) bufferFullSeconds[g]++;
       }
       wipSum += lineStarted - lineLeft;
     }
@@ -437,5 +498,6 @@ export function simulateShift(plant: Plant, options: SimOptions = {}): SimResult
     stateTimeline: stateTimelines[0],
     stateTimelines,
     flowByMinute,
+    trace: tracing ? trace : null,
   };
 }

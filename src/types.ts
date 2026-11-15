@@ -169,6 +169,39 @@ export interface SimResult {
   stateTimeline: StateTimeline; // line 1
   stateTimelines: StateTimeline[]; // every line
   flowByMinute: { started: number[]; good: number[]; scrap: number[] }; // all lines
+  trace: UnitTrace | null; // every unit's path, or null when tracing is off
+}
+
+// How a stay on a machine ended.
+export const VISIT_OUTCOME = {
+  moved: 0, // went on to a buffer or the next machine
+  scrap: 1, // failed and was removed
+  exit: 2, // left the last station as a good unit
+  absorbed: 3, // went on, then became part of another unit at a join
+  open: 4, // still on the machine when the shift ended
+} as const;
+
+// Every unit's path, as column tables. Times are seconds from shift start.
+export interface UnitTrace {
+  // One row per stay on a machine. done and leave are -1 while still open.
+  visits: {
+    unit: number[];
+    line: number[];
+    station: number[]; // index into plant.stations
+    machine: number[];
+    enter: number[];
+    done: number[];
+    leave: number[];
+    outcome: number[];
+  };
+  // One row per stay in the buffer after a station. to is -1 while open.
+  waits: {
+    unit: number[];
+    line: number[];
+    afterStation: number[];
+    from: number[];
+    to: number[];
+  };
 }
 
 export type MachineState = "down" | "blocked" | "busy" | "idle";

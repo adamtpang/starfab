@@ -4,88 +4,119 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { flowTopology } from "../engine/topology";
 import { fmtInt } from "../lib/format";
 import type { MachineState, Plant, ShiftPattern, SimResult } from "../types";
+import { VISIT_OUTCOME } from "../types";
 
 // The floor twin: every line and station of the simulated shift as a small
-// isometric floor, replayed as a time-lapse. Machine outlines take the color
-// of their simulated state. Kit motion on the conveyors is an illustration
-// of flow, not a unit-accurate replay.
+// 3D floor. Each small box on the floor is one simulated unit, placed from
+// the simulator's own record of where that unit was at that second. Machine
+// outlines and stack lights take the color of the station's simulated state.
+// The glide between stations, the workers and the moving machine parts are
+// illustration: in the model a transfer takes no time.
 
 type Theme = "vacuum" | "studio";
 
 interface Palette {
-  lit: boolean; // studio uses soft lighting, vacuum is a flat drawing
   floor: number;
+  ground: number;
   floorEdge: number;
+  aisle: number;
   rail: number;
   kit: number;
+  worker: number;
   label: string;
   labelDim: string;
+  sky: number;
+  bounce: number;
+  skyPower: number;
+  sun: number;
+  sunPower: number;
   edge: Record<MachineState, number>;
   body: Record<MachineState, number>;
 }
 
 const PALETTES: Record<Theme, Palette> = {
   vacuum: {
-    lit: false,
-    floor: 0x071226,
+    floor: 0x0b1a33,
+    ground: 0x05070d,
     floorEdge: 0x2f7391,
-    rail: 0x1d2a4d,
+    aisle: 0x1f4a66,
+    rail: 0x1b2f52,
     kit: 0xffffff,
+    worker: 0x8fb6d9,
     label: "#a9c1f5",
     labelDim: "#7f9ad8",
+    sky: 0xa8d8ff,
+    bounce: 0x0a1226,
+    skyPower: 1.5,
+    sun: 0xcfe6ff,
+    sunPower: 2.4,
     edge: { busy: 0x6fe0ff, blocked: 0xc7b3ff, down: 0xff5c6c, idle: 0x2f7391 },
-    body: { busy: 0x0a2233, blocked: 0x1c1838, down: 0x33121a, idle: 0x0a1626 },
+    body: { busy: 0x1c4662, blocked: 0x3a3170, down: 0x6a2530, idle: 0x16304a },
   },
   studio: {
-    lit: true,
     floor: 0xf3f3f1,
+    ground: 0xe1e4e8,
     floorEdge: 0xb9c0c9,
+    aisle: 0xd3d8de,
     rail: 0xcfd4da,
     kit: 0x14607c,
+    worker: 0x3a4250,
     label: "#3a4250",
     labelDim: "#636c7a",
+    sky: 0xffffff,
+    bounce: 0xc9ced6,
+    skyPower: 1.7,
+    sun: 0xffffff,
+    sunPower: 2.3,
     edge: { busy: 0x5b6672, blocked: 0x6541d1, down: 0xcf2c3c, idle: 0xa9b2bd },
-    body: { busy: 0xffffff, blocked: 0xd9cffa, down: 0xf5b9bf, idle: 0xe2e5e9 },
+    body: { busy: 0xffffff, blocked: 0xd9cffa, down: 0xf5b9bf, idle: 0xe6e9ed },
   },
 };
 
-const DX = 5; // spacing between stations along a line
-const DZ = 4.6; // spacing between lines
-const SPEEDS = [0.25, 1, 4];
-const MINUTES_PER_SECOND = 60; // 1x plays one simulated hour per second
+const DX = 5; // spacing between columns of stations
+const DZ = 4.6; // depth of one line
+const ROW = 2.9; // spacing between stations that share a column
+const RAIL = 1.55; // the conveyor runs just in front of each station
+const GLIDE = 3; // simulated seconds a unit takes to glide onto a station
+const SPEEDS = [10, 30, 300, 3600]; // simulated seconds per second of playback
+const DEFAULT_SPEED = 30;
 
-interface MachineRef {
-  line: number;
-  station: number;
-  edges: THREE.LineBasicMaterial;
-  fill: THREE.MeshBasicMaterial | THREE.MeshLambertMaterial;
-  kit: THREE.Mesh | null; // kit travelling to the station this one feeds
-  x: number;
-  z: number;
-  toX: number;
-  toZ: number;
+type Mover = { axis: "x" | "y"; amplitude: number; rate: number };
+interface Part {
+  size: [number, number, number];
+  at: [number, number, number];
+  round?: boolean; // drawn as a cylinder lying along x
+  mover?: Mover;
 }
 
-// A few primitives per station, so each one reads as a different kind of
-// work. Sizes are [width, height, depth] and positions are box centers.
-function stationParts(index: number): { size: [number, number, number]; at: [number, number, number] }[] {
+// A handful of primitives per station, so each one reads as a different
+// kind of work. Sizes are [width, height, depth], positions are centers.
+function stationParts(index: number): Part[] {
+  const cabinet: Part = { size: [0.5, 1.1, 0.5], at: [-1.75, 0.55, -0.7] };
   switch (index % 6) {
-    case 0: // kitting: three racks
-      return [-0.9, 0, 0.9].map((z) => ({ size: [2.2, 1.5, 0.55], at: [0, 0.75, z] }));
-    case 1: // electronics: bench and hood
+    case 0: // racks of parts
+      return [
+        ...[-0.9, 0, 0.9].map((z): Part => ({ size: [2.2, 1.5, 0.55], at: [0, 0.75, z] })),
+        ...[-0.9, 0, 0.9].map((z): Part => ({ size: [2.3, 0.08, 0.62], at: [0, 1.56, z] })),
+      ];
+    case 1: // bench with a hood
       return [
         { size: [2.6, 0.8, 1.8], at: [0, 0.4, 0] },
         { size: [2.0, 0.5, 1.2], at: [0, 1.45, 0] },
         { size: [0.15, 0.6, 0.15], at: [-0.9, 1.0, 0] },
         { size: [0.15, 0.6, 0.15], at: [0.9, 1.0, 0] },
+        { size: [0.9, 0.12, 0.6], at: [0, 0.86, 0.3], mover: { axis: "x", amplitude: 0.5, rate: 2.2 } },
+        cabinet,
       ];
-    case 2: // mechanical assembly: press with a tall column
+    case 2: // press with a moving head
       return [
         { size: [2.4, 0.9, 2.0], at: [0, 0.45, 0] },
         { size: [0.9, 2.2, 0.9], at: [-0.5, 2.0, -0.3] },
         { size: [1.4, 0.3, 1.2], at: [0.2, 2.6, -0.1] },
+        { size: [0.9, 0.5, 0.9], at: [0.45, 1.75, 0.1], mover: { axis: "y", amplitude: 0.4, rate: 3.2 } },
+        cabinet,
       ];
-    case 3: // integration: gantry over a table
+    case 3: // gantry over a table, with a moving carriage
       return [
         { size: [2.4, 0.6, 1.8], at: [0, 0.3, 0] },
         { size: [0.25, 2.4, 0.25], at: [-1.2, 1.2, -1.0] },
@@ -93,18 +124,22 @@ function stationParts(index: number): { size: [number, number, number]; at: [num
         { size: [0.25, 2.4, 0.25], at: [-1.2, 1.2, 1.0] },
         { size: [0.25, 2.4, 0.25], at: [1.2, 1.2, 1.0] },
         { size: [2.9, 0.3, 2.5], at: [0, 2.55, 0] },
+        { size: [0.5, 0.6, 0.5], at: [0, 2.1, 0], mover: { axis: "x", amplitude: 0.8, rate: 1.6 } },
       ];
-    case 4: // test: closed chamber
+    case 4: // closed test chamber
       return [
-        { size: [2.6, 2.0, 2.2], at: [0, 1.0, 0] },
-        { size: [0.8, 0.5, 0.8], at: [0, 2.25, 0] },
+        { size: [2.6, 0.5, 2.2], at: [0, 0.25, 0] },
+        { size: [2.4, 1.7, 1.7], at: [0, 1.35, 0], round: true },
+        { size: [0.8, 0.4, 0.8], at: [0, 2.4, 0] },
+        cabinet,
       ];
-    default: // pack-out: table and stacked cartons
+    default: // table and stacked cartons
       return [
         { size: [2.6, 0.5, 1.8], at: [0, 0.25, 0] },
         { size: [0.8, 0.7, 0.8], at: [-0.7, 0.85, 0] },
         { size: [0.8, 0.7, 0.8], at: [0.3, 0.85, 0.2] },
         { size: [0.8, 0.7, 0.8], at: [-0.2, 1.55, 0.1] },
+        { size: [0.12, 1.2, 1.6], at: [1.25, 1.1, 0] },
       ];
   }
 }
@@ -130,10 +165,60 @@ function floorLabel(text: string, width: number, color: string): THREE.Mesh {
   return mesh;
 }
 
-function clock(shift: ShiftPattern, minute: number): string {
+function clock(shift: ShiftPattern, seconds: number): string {
   const [h, m] = shift.startClock.split(":").map(Number);
-  const total = h * 60 + m + Math.floor(minute);
-  return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+  const total = h * 3600 + m * 60 + Math.floor(seconds);
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${two(Math.floor(total / 3600) % 24)}:${two(Math.floor(total / 60) % 60)}:${two(total % 60)}`;
+}
+
+// Largest k with xs[rows[k]] <= value, or -1.
+function lastAtOrBefore(rows: number[], xs: number[], value: number): number {
+  let lo = 0;
+  let hi = rows.length - 1;
+  let found = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (xs[rows[mid]] <= value) {
+      found = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return found;
+}
+
+// Rows of the trace grouped for fast lookup at one moment in time.
+interface TraceIndex {
+  byMachine: number[][][][]; // [line][station][machine] -> visit rows, in time order
+  byBuffer: number[][][]; // [line][station] -> wait rows, in time order
+}
+
+function indexTrace(sim: SimResult, plant: Plant): TraceIndex {
+  const lines = plant.parallelLines;
+  const byMachine = Array.from({ length: lines }, () =>
+    plant.stations.map((s) => Array.from({ length: s.parallelUnits }, () => [] as number[])),
+  );
+  const byBuffer = Array.from({ length: lines }, () => plant.stations.map(() => [] as number[]));
+  const trace = sim.trace;
+  if (trace) {
+    const v = trace.visits;
+    for (let k = 0; k < v.unit.length; k++) byMachine[v.line[k]]?.[v.station[k]]?.[v.machine[k]]?.push(k);
+    const w = trace.waits;
+    for (let k = 0; k < w.unit.length; k++) byBuffer[w.line[k]]?.[w.afterStation[k]]?.push(k);
+  }
+  return { byMachine, byBuffer };
+}
+
+interface StationRef {
+  line: number;
+  station: number;
+  edges: THREE.LineBasicMaterial;
+  fill: THREE.MeshStandardMaterial;
+  lamp: THREE.MeshBasicMaterial;
+  movers: { mesh: THREE.Mesh; base: number; mover: Mover }[];
+  worker: THREE.Object3D | null;
 }
 
 export default function TwinView({
@@ -150,24 +235,31 @@ export default function TwinView({
   const mountRef = useRef<HTMLDivElement>(null);
   const simRef = useRef(sim);
   simRef.current = sim;
-  const minuteRef = useRef(0);
+  const secondsRef = useRef(0);
   const playingRef = useRef(true);
-  const speedRef = useRef(1);
+  const speedRef = useRef(DEFAULT_SPEED);
   const resetViewRef = useRef<() => void>(() => {});
 
-  const [minute, setMinute] = useState(0);
+  const [seconds, setSeconds] = useState(0);
   const [playing, setPlaying] = useState(
     () => !(typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches),
   );
-  const [speed, setSpeed] = useState(1);
+  const [speed, setSpeed] = useState(DEFAULT_SPEED);
   const [basisOpen, setBasisOpen] = useState(false);
+  const [unitsShown, setUnitsShown] = useState(0);
   playingRef.current = playing;
   speedRef.current = speed;
 
   const lines = plant.parallelLines;
   const stationCount = plant.stations.length;
-  const stationKey = plant.stations.map((s) => `${s.id}:${s.name}:${s.feeds ?? ""}`).join("|");
-  const totalMinutes = sim.flowByMinute.good.length;
+  const layoutKey = plant.stations
+    .map((s) => `${s.id}:${s.name}:${s.feeds ?? ""}:${s.parallelUnits}:${s.operators}`)
+    .join("|");
+  const bufferCapacity = sim.buffers.capacity;
+
+  const traceIndex = useMemo(() => indexTrace(sim, plant), [sim, plant]);
+  const indexRef = useRef(traceIndex);
+  indexRef.current = traceIndex;
 
   // Running totals at each minute, for the counters.
   const totals = useMemo(() => {
@@ -185,29 +277,21 @@ export default function TwinView({
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
+    const C = PALETTES[theme];
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     mount.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    const C = PALETTES[theme];
-    const solid = (color: number) => {
-      const options = { color, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 };
-      return C.lit ? new THREE.MeshLambertMaterial(options) : new THREE.MeshBasicMaterial(options);
-    };
-    if (C.lit) {
-      scene.add(new THREE.HemisphereLight(0xffffff, 0xc9ced6, 1.9));
-      const sun = new THREE.DirectionalLight(0xffffff, 1.6);
-      sun.position.set(20, 40, 10);
-      scene.add(sun);
-    }
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 400);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.maxPolarAngle = Math.PI / 2.15;
     controls.minZoom = 0.6;
-    controls.maxZoom = 4;
+    controls.maxZoom = 5;
     controls.zoomToCursor = true;
 
     // Lay stations out by how far they are from the exit. Stations at the
@@ -218,18 +302,37 @@ export default function TwinView({
     for (let i = stationCount - 2; i >= 0; i--) depth[i] = depth[topology.next[i]] + 1;
     const columns = Math.max(...depth) + 1;
     const column = depth.map((d) => columns - 1 - d);
-    const rowsInColumn = (c: number) => column.filter((x) => x === c).length;
-    const maxRows = Math.max(...column.map(rowsInColumn));
-    const ROW = 2.9;
+    const peersOf = (i: number) => column.flatMap((c, k) => (c === column[i] ? [k] : []));
+    const maxRows = Math.max(...column.map((_, i) => peersOf(i).length));
     const lineDepth = DZ + (maxRows - 1) * ROW;
     const rowOffset = (i: number) => {
-      const peers = column.flatMap((c, k) => (c === column[i] ? [k] : []));
+      const peers = peersOf(i);
       return (peers.indexOf(i) - (peers.length - 1) / 2) * ROW;
     };
+    const stationX = (i: number) => (column[i] - (columns - 1) / 2) * DX;
+    const lineZ = (l: number) => (l - (lines - 1) / 2) * lineDepth;
+    const stationZ = (l: number, i: number) => lineZ(l) + rowOffset(i);
 
-    const floorW = columns * DX + 5;
+    const floorW = columns * DX + 6;
     const floorD = lines * lineDepth + 4.5;
     const viewWidth = (floorW + floorD) * 0.74 + 2;
+
+    // Light: a soft sky fill plus one sun that casts shadows.
+    scene.add(new THREE.HemisphereLight(C.sky, C.bounce, C.skyPower));
+    const sun = new THREE.DirectionalLight(C.sun, C.sunPower);
+    sun.position.set(floorW * 0.35, 46, floorD * 0.2 + 14);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    const reach = Math.max(floorW, floorD) * 0.75 + 4;
+    sun.shadow.camera.left = -reach;
+    sun.shadow.camera.right = reach;
+    sun.shadow.camera.top = reach;
+    sun.shadow.camera.bottom = -reach;
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = 140;
+    sun.shadow.bias = -0.0006;
+    sun.shadow.normalBias = 0.03;
+    scene.add(sun);
 
     const resetView = () => {
       camera.position.set(60, 52, 60);
@@ -245,72 +348,122 @@ export default function TwinView({
       disposables.push(item);
       return item;
     };
+    const solid = (color: number) =>
+      track(
+        new THREE.MeshStandardMaterial({
+          color,
+          roughness: 0.86,
+          metalness: 0.04,
+          polygonOffset: true,
+          polygonOffsetFactor: 1,
+          polygonOffsetUnits: 1,
+        }),
+      );
     const outlined = (
-      size: [number, number, number],
-      at: [number, number, number],
+      part: Part,
       fill: THREE.Material,
       edge: THREE.Material,
       parent: THREE.Object3D,
     ) => {
-      const geometry = track(new THREE.BoxGeometry(...size));
+      const [w, h, d] = part.size;
+      const geometry = track(
+        part.round ? new THREE.CylinderGeometry(h / 2, h / 2, w, 20) : new THREE.BoxGeometry(w, h, d),
+      );
       const mesh = new THREE.Mesh(geometry, fill);
-      mesh.position.set(...at);
-      const outline = new THREE.LineSegments(track(new THREE.EdgesGeometry(geometry)), edge);
-      mesh.add(outline);
+      mesh.position.set(...part.at);
+      if (part.round) mesh.rotation.z = Math.PI / 2;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.add(new THREE.LineSegments(track(new THREE.EdgesGeometry(geometry, 30)), edge));
       parent.add(mesh);
       return mesh;
     };
 
-    // Floor slab.
-    const floorFill = track(solid(C.floor));
+    // Ground under the slab, then the slab, then aisle lines between lines.
+    const ground = new THREE.Mesh(
+      track(new THREE.PlaneGeometry(floorW * 4, floorD * 4)),
+      track(new THREE.MeshStandardMaterial({ color: C.ground, roughness: 1, transparent: true, opacity: 0.55 })),
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -0.42;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
     const floorEdge = track(new THREE.LineBasicMaterial({ color: C.floorEdge }));
-    outlined([floorW, 0.4, floorD], [0, -0.2, 0], floorFill, floorEdge, scene);
+    const slab = outlined({ size: [floorW, 0.4, floorD], at: [0, -0.2, 0] }, solid(C.floor), floorEdge, scene);
+    slab.castShadow = false;
+    const aisleFill = track(new THREE.MeshBasicMaterial({ color: C.aisle }));
+    for (let l = 0; l <= lines; l++) {
+      const stripe = new THREE.Mesh(track(new THREE.PlaneGeometry(floorW - 2.4, 0.09)), aisleFill);
+      stripe.rotation.x = -Math.PI / 2;
+      const edge = l === 0 ? 0.35 : l === lines ? -0.35 : 0;
+      stripe.position.set(0, 0.012, (l - lines / 2) * lineDepth + edge);
+      scene.add(stripe);
+    }
 
-    const railFill = track(solid(C.rail));
+    const railFill = solid(C.rail);
     const railEdge = track(new THREE.LineBasicMaterial({ color: C.edge.idle }));
-    const kitFill = track(solid(C.kit));
-    const kitGeometry = track(new THREE.BoxGeometry(0.42, 0.3, 0.42));
+    const workerFill = solid(C.worker);
+    const workerBody = track(new THREE.BoxGeometry(0.3, 0.62, 0.22));
+    const workerHead = track(new THREE.SphereGeometry(0.14, 12, 10));
+    const lampGeometry = track(new THREE.CylinderGeometry(0.11, 0.11, 0.34, 12));
+    const poleGeometry = track(new THREE.CylinderGeometry(0.035, 0.035, 1.5, 8));
 
-    const machines: MachineRef[] = [];
-    const stationX = (i: number) => (column[i] - (columns - 1) / 2) * DX;
-    const lineZ = (l: number) => (l - (lines - 1) / 2) * lineDepth;
-    const RAIL = 1.55; // the conveyor runs just in front of each station
-
+    const stationRefs: StationRef[] = [];
     for (let l = 0; l < lines; l++) {
       for (let i = 0; i < stationCount; i++) {
         const x = stationX(i);
-        const z = lineZ(l) + rowOffset(i);
+        const z = stationZ(l, i);
         const edges = track(new THREE.LineBasicMaterial({ color: C.edge.idle }));
-        const bodyFill = track(solid(C.body.idle));
+        const fill = solid(C.body.idle);
         const group = new THREE.Group();
         group.position.set(x, 0, z - 0.3);
-        for (const part of stationParts(i)) outlined(part.size, part.at, bodyFill, edges, group);
+        const movers: StationRef["movers"] = [];
+        for (const part of stationParts(i)) {
+          const mesh = outlined(part, fill, edges, group);
+          if (part.mover) {
+            movers.push({ mesh, base: part.mover.axis === "x" ? part.at[0] : part.at[1], mover: part.mover });
+          }
+        }
+        // Stack light: a pole with a lamp that shows the station's state.
+        const lamp = track(new THREE.MeshBasicMaterial({ color: C.edge.idle }));
+        const pole = new THREE.Mesh(poleGeometry, railFill);
+        pole.position.set(1.75, 0.75, -0.75);
+        const bulb = new THREE.Mesh(lampGeometry, lamp);
+        bulb.position.set(1.75, 1.67, -0.75);
+        group.add(pole, bulb);
         scene.add(group);
 
-        let kit: THREE.Mesh | null = null;
-        let toX = x;
-        let toZ = z;
+        // One operator per station, standing at the front corner.
+        let worker: THREE.Object3D | null = null;
+        if (plant.stations[i].operators > 0) {
+          worker = new THREE.Group();
+          const body = new THREE.Mesh(workerBody, workerFill);
+          body.position.y = 0.36;
+          body.castShadow = true;
+          const head = new THREE.Mesh(workerHead, workerFill);
+          head.position.y = 0.83;
+          head.castShadow = true;
+          worker.add(body, head);
+          worker.position.set(x - 1.75, 0, z + 0.85);
+          scene.add(worker);
+        }
+
         const target = topology.next[i];
         if (target >= 0) {
-          toX = stationX(target);
-          toZ = lineZ(l) + rowOffset(target);
           // Conveyor from this station to the one it feeds.
-          const dx = toX - x;
-          const dz = toZ - z;
+          const toX = stationX(target);
+          const toZ = stationZ(l, target);
           const rail = outlined(
-            [Math.hypot(dx, dz), 0.12, 0.5],
-            [(x + toX) / 2, 0.06, (z + toZ) / 2 + RAIL],
+            { size: [Math.hypot(toX - x, toZ - z), 0.12, 0.5], at: [(x + toX) / 2, 0.06, (z + toZ) / 2 + RAIL] },
             railFill,
             railEdge,
             scene,
           );
-          rail.rotation.y = -Math.atan2(dz, dx);
-          kit = new THREE.Mesh(kitGeometry, kitFill);
-          kit.position.set(x, 0.3, z + RAIL);
-          kit.visible = false;
-          scene.add(kit);
+          rail.rotation.y = -Math.atan2(toZ - z, toX - x);
+          rail.castShadow = false;
         }
-        machines.push({ line: l, station: i, edges, fill: bodyFill, kit, x, z, toX, toZ });
+        stationRefs.push({ line: l, station: i, edges, fill, lamp, movers, worker });
       }
       const label = floorLabel(`LINE ${l + 1}`, 3.2, C.labelDim);
       label.position.set(-floorW / 2 + 2.0, 0.02, lineZ(l) + lineDepth / 2 - 0.1);
@@ -319,7 +472,7 @@ export default function TwinView({
       disposables.push(label.material as THREE.Material, label.geometry);
     }
     plant.stations.forEach((s, i) => {
-      const peers = column.flatMap((c, k) => (c === column[i] ? [k] : []));
+      const peers = peersOf(i);
       const label = floorLabel(`${s.id} ${s.name.toUpperCase()}`, 4.4, C.label);
       // Stations that share a column stack their labels.
       label.position.set(stationX(i) + 0.2, 0.02, floorD / 2 - 0.7 - 0.6 * (peers.length - 1 - peers.indexOf(i)));
@@ -327,6 +480,42 @@ export default function TwinView({
       disposables.push((label.material as THREE.MeshBasicMaterial).map as THREE.Texture);
       disposables.push(label.material as THREE.Material, label.geometry);
     });
+
+    // Units: one instanced box per simulated unit on the floor right now.
+    const machineTotal = plant.stations.reduce((n, s) => n + s.parallelUnits, 0);
+    const maxUnits = lines * (machineTotal * 2 + (stationCount - 1) * Math.max(1, bufferCapacity)) + 8;
+    const unitMesh = new THREE.InstancedMesh(
+      track(new THREE.BoxGeometry(0.36, 0.26, 0.36)),
+      track(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 })),
+      maxUnits,
+    );
+    unitMesh.castShadow = true;
+    unitMesh.frustumCulled = false;
+    unitMesh.count = 0;
+    scene.add(unitMesh);
+    disposables.push(unitMesh);
+    const pose = new THREE.Object3D();
+    const tint = new THREE.Color();
+    const kitColor = new THREE.Color(C.kit);
+    const heldColor = new THREE.Color(C.edge.blocked);
+    const scrapColor = new THREE.Color(C.edge.down);
+
+    // Where machine m of a station holds its unit: a small grid on the rail.
+    const padSlot = (l: number, i: number, m: number): [number, number] => {
+      const n = plant.stations[i].parallelUnits;
+      const cols = Math.min(n, 6);
+      return [
+        stationX(i) + ((m % cols) - (cols - 1) / 2) * 0.46,
+        stationZ(l, i) + RAIL + Math.floor(m / cols) * 0.46,
+      ];
+    };
+    // Where a unit glides in from: the station that feeds this one, or a
+    // point just before a station that starts units.
+    const origin = (l: number, i: number): [number, number] => {
+      const from = topology.inputs[i][0];
+      if (from === undefined) return [stationX(i) - 2.4, stationZ(l, i) + RAIL];
+      return [stationX(from), stationZ(l, from) + RAIL];
+    };
 
     const resize = () => {
       const w = mount.clientWidth;
@@ -363,31 +552,102 @@ export default function TwinView({
       if (!visible) return;
 
       const current = simRef.current;
-      const bins = current.flowByMinute.good.length;
-      if (playingRef.current && bins > 0) {
-        minuteRef.current = (minuteRef.current + dt * MINUTES_PER_SECOND * speedRef.current) % bins;
+      const total = current.scheduledSeconds;
+      if (playingRef.current && total > 0) {
+        secondsRef.current = (secondsRef.current + dt * speedRef.current) % total;
       }
-      const bin = Math.min(bins - 1, Math.max(0, Math.floor(minuteRef.current)));
-      const phase = (now / 1000) % 1.2 / 1.2;
+      const T = Math.min(Math.max(0, secondsRef.current), Math.max(0, total - 0.001));
+      const binSeconds = current.stateTimeline.binSeconds;
+      const bin = Math.floor(T / binSeconds);
+      const wall = now / 1000;
 
-      for (const m of machines) {
-        const station = plant.stations[m.station];
-        const row = current.stateTimelines[m.line]?.rows[station.id];
-        const state: MachineState = row?.[bin] ?? "idle";
-        m.edges.color.setHex(C.edge[state]);
-        m.fill.color.setHex(C.body[state]);
-        if (m.kit) {
-          m.kit.visible = state === "busy";
-          m.kit.position.x = m.x + phase * (m.toX - m.x);
-          m.kit.position.z = m.z + phase * (m.toZ - m.z) + 1.55;
+      for (const ref of stationRefs) {
+        const station = plant.stations[ref.station];
+        const state: MachineState = current.stateTimelines[ref.line]?.rows[station.id]?.[bin] ?? "idle";
+        ref.edges.color.setHex(C.edge[state]);
+        ref.fill.color.setHex(C.body[state]);
+        ref.lamp.color.setHex(C.edge[state]);
+        const working = state === "busy" && playingRef.current;
+        for (const m of ref.movers) {
+          const offset = working ? Math.sin(wall * m.mover.rate + ref.line + ref.station) * m.mover.amplitude : 0;
+          if (m.mover.axis === "x") m.mesh.position.x = m.base + offset;
+          else m.mesh.position.y = m.base - Math.abs(offset);
+        }
+        if (ref.worker) ref.worker.rotation.y = working ? Math.sin(wall * 1.4 + ref.station * 2) * 0.5 : 0;
+      }
+
+      // Place every unit that is on the floor at second T.
+      let n = 0;
+      const put = (x: number, y: number, z: number, color: THREE.Color) => {
+        if (n >= maxUnits) return;
+        pose.position.set(x, y, z);
+        pose.updateMatrix();
+        unitMesh.setMatrixAt(n, pose.matrix);
+        unitMesh.setColorAt(n, tint.copy(color));
+        n++;
+      };
+      const trace = current.trace;
+      const index = indexRef.current;
+      if (trace) {
+        const v = trace.visits;
+        const w = trace.waits;
+        for (let l = 0; l < lines; l++) {
+          for (let i = 0; i < stationCount; i++) {
+            const perMachine = index.byMachine[l]?.[i] ?? [];
+            for (let m = 0; m < perMachine.length; m++) {
+              const rows = perMachine[m];
+              const at = lastAtOrBefore(rows, v.enter, T);
+              if (at < 0) continue;
+              const row = rows[at];
+              const [px, pz] = padSlot(l, i, m);
+              const leave = v.leave[row];
+              if (leave < 0 || leave > T) {
+                // On the machine now. Glide in over the first few seconds.
+                const f = Math.min(1, (T - v.enter[row]) / GLIDE);
+                const [ox, oz] = origin(l, i);
+                const held = v.done[row] >= 0 && T >= v.done[row];
+                put(ox + (px - ox) * f, 0.3, oz + (pz - oz) * f, held ? heldColor : kitColor);
+              } else if (v.outcome[row] === VISIT_OUTCOME.exit && T < leave + GLIDE) {
+                // A good unit leaving the last station.
+                put(px + ((T - leave) / GLIDE) * 2.6, 0.3, pz, kitColor);
+              } else if (v.outcome[row] === VISIT_OUTCOME.scrap && T < leave + GLIDE) {
+                // A scrapped unit, set aside in red before it is removed.
+                put(px, 0.3, pz + 0.6 + ((T - leave) / GLIDE) * 0.5, scrapColor);
+              }
+            }
+            const waits = index.byBuffer[l]?.[i] ?? [];
+            const target = topology.next[i];
+            if (waits.length === 0 || target < 0) continue;
+            const lastIn = lastAtOrBefore(waits, w.from, T);
+            const sx = stationX(i);
+            const sz = stationZ(l, i) + RAIL;
+            const ex = stationX(target);
+            const ez = stationZ(l, target) + RAIL;
+            let waiting = 0;
+            // The buffer is first in first out, so the units in it at T are
+            // a run of rows ending at lastIn.
+            for (let k = lastIn; k >= 0; k--) {
+              const row = waits[k];
+              if (w.to[row] >= 0 && w.to[row] <= T) break;
+              waiting++;
+            }
+            for (let s = 0; s < waiting; s++) {
+              const f = 0.3 + ((waiting - 1 - s + 0.5) * 0.45) / Math.max(1, bufferCapacity);
+              put(sx + (ex - sx) * f, 0.3, sz + (ez - sz) * f, kitColor);
+            }
+          }
         }
       }
+      unitMesh.count = n;
+      unitMesh.instanceMatrix.needsUpdate = true;
+      if (unitMesh.instanceColor) unitMesh.instanceColor.needsUpdate = true;
 
       controls.update();
       renderer.render(scene, camera);
       if (now - lastReport > 120) {
         lastReport = now;
-        setMinute(minuteRef.current);
+        setSeconds(secondsRef.current);
+        setUnitsShown(n);
       }
     };
     frame = requestAnimationFrame(tick);
@@ -401,26 +661,31 @@ export default function TwinView({
       renderer.dispose();
       mount.removeChild(renderer.domElement);
     };
-    // The scene is rebuilt only when the floor layout or the theme changes.
+    // The scene is rebuilt only when the floor layout, buffer size or theme
+    // changes. Everything else is read fresh each frame.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lines, stationCount, stationKey, theme]);
+  }, [lines, stationCount, layoutKey, theme, bufferCapacity]);
 
-  const bin = Math.min(Math.max(0, totalMinutes - 1), Math.max(0, Math.floor(minute)));
-  const good = totals.good[bin] ?? 0;
-  const scrap = totals.scrap[bin] ?? 0;
-  const wip = (totals.started[bin] ?? 0) - good - scrap;
-  const plannedSoFar = sim.analytical.plantDemandPerHour * ((bin + 1) / 60);
+  const totalSeconds = sim.scheduledSeconds;
+  const now = Math.min(Math.max(0, seconds), Math.max(0, totalSeconds - 1));
+  const bin = Math.min(Math.max(0, totals.good.length - 1), Math.floor(now / 60));
+  // Counts up to this second: whole minutes before it, plus the share of
+  // the current minute that has played.
+  const soFar = (running: number[], perMinute: number[]) =>
+    (bin > 0 ? running[bin - 1] : 0) + (perMinute[bin] ?? 0) * ((now % 60) / 60);
+  const good = soFar(totals.good, sim.flowByMinute.good);
+  const scrap = soFar(totals.scrap, sim.flowByMinute.scrap);
+  const plannedSoFar = sim.analytical.plantDemandPerHour * (now / 3600);
   const bottleneck = plant.stations.find((s) => s.id === sim.bottleneckStationId);
+  const unitNoun = plant.hall?.unitNounPlural ?? "units";
 
   return (
     <section className="twin" aria-label="Floor twin of the simulated shift">
       <div className="twin-canvas" ref={mountRef} aria-hidden="true" />
 
       <div className="twin-chip twin-tl">
-        <span className="cell-label">
-          FLOOR TWIN / CREW {shift.crew} / TIME-LAPSE
-        </span>
-        <b className="twin-clock">{clock(shift, bin)}</b>
+        <span className="cell-label">FLOOR TWIN / CREW {shift.crew} / REPLAY</span>
+        <b className="twin-clock">{clock(shift, now)}</b>
         <span className="twin-sub">
           {lines} {lines === 1 ? "line" : "lines"}, {stationCount} stations
           {bottleneck ? `, bottleneck ${bottleneck.id} ${bottleneck.name}` : ""}
@@ -436,7 +701,7 @@ export default function TwinView({
         >
           {playing ? "Pause" : "Play"}
         </button>
-        <div className="twin-speeds" role="group" aria-label="Playback speed">
+        <div className="twin-speeds" role="group" aria-label="Playback speed, simulated seconds per second">
           {SPEEDS.map((s) => (
             <button
               key={s}
@@ -468,8 +733,8 @@ export default function TwinView({
           <span className="cell-label">SCRAP</span>
         </div>
         <div>
-          <b>{fmtInt(wip)}</b>
-          <span className="cell-label">WIP</span>
+          <b>{fmtInt(unitsShown)}</b>
+          <span className="cell-label">ON FLOOR</span>
         </div>
       </div>
 
@@ -481,12 +746,12 @@ export default function TwinView({
           id="twin-scrub"
           type="range"
           min={0}
-          max={Math.max(0, totalMinutes - 1)}
-          step={1}
-          value={bin}
+          max={Math.max(0, totalSeconds - 60)}
+          step={60}
+          value={Math.floor(now / 60) * 60}
           onChange={(e) => {
-            minuteRef.current = Number(e.target.value);
-            setMinute(minuteRef.current);
+            secondsRef.current = Number(e.target.value);
+            setSeconds(secondsRef.current);
             setPlaying(false);
           }}
         />
@@ -519,14 +784,21 @@ export default function TwinView({
           <div className="twin-basis">
             <p>
               The {plant.hall?.label.toLowerCase() ?? "hall"} is fictional, not a model of any real
-              plant. Material flow is
-              deterministic and seeded. Machine outlines show the simulated state of each
-              station, one minute per step. At 1x, one second of playback is one simulated hour.
+              plant. Material flow is deterministic and seeded. Every small box is one simulated{" "}
+              {plant.hall?.unitNoun ?? "unit"}, placed from the simulator's own record of where it
+              was at that second. A violet box is finished and waiting for room downstream. A red
+              box was scrapped.
             </p>
             <p>
-              Cycle times, yields, downtime and buffer sizes are planning assumptions, not
-              measured performance. Units moving on the conveyors illustrate flow and are not a
-              unit-by-unit replay. Station shapes and floor spacing are illustrative.
+              Playback speed is simulated seconds per second: 30x suits watching single {unitNoun},
+              3600x plays one hour each second. Machine outlines and stack lights show each
+              station's state, one minute per step.
+            </p>
+            <p>
+              Cycle times, yields, downtime and buffer sizes are planning assumptions, not measured
+              performance. In the model a transfer takes no time, so the short glide between
+              stations is an illustration, as are the workers, the moving machine parts, the
+              station shapes and the floor spacing.
             </p>
             <p>Unofficial fan or learning project, not affiliated with SpaceX.</p>
           </div>

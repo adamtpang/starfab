@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { applyLevers, sanitizeLevers } from "../applyLevers";
 import { ASSEMBLY_PLANT, FAB_PLANT, SEED_PLANT } from "../plant";
 import { runRamp } from "../ramp";
+import { VISIT_OUTCOME } from "../types";
 import type { Plant, Station, StationId } from "../types";
 import { eventDurations, placeMachineEvents } from "./downtime";
 import { computeClosedForm } from "./formulas";
@@ -452,6 +453,102 @@ describe("assembly hall (fictional)", () => {
     expect(r.unitsGood).toBeGreaterThan(0);
     expect(r.unitsGood).toBeLessThanOrEqual(closed.unitsGood);
     expect(simulateShift(ASSEMBLY_PLANT).unitsGood).toBe(r.unitsGood);
+  });
+});
+
+describe("unit trace: every unit's path", () => {
+  const count = (xs: number[], value: number) => xs.filter((x) => x === value).length;
+
+  it("matches the F2 fixture second by second", () => {
+    const r = simulateShift(tinyPlant(), { yieldMode: "scripted" });
+    const v = r.trace!.visits;
+    // Unit 0: on S1 from 0 to 10, then on S2 from 10 to 20, then out.
+    expect([v.unit[0], v.station[0], v.enter[0], v.done[0], v.leave[0], v.outcome[0]]).toEqual([
+      0, 0, 0, 10, 10, VISIT_OUTCOME.moved,
+    ]);
+    expect([v.unit[1], v.station[1], v.enter[1], v.done[1], v.leave[1], v.outcome[1]]).toEqual([
+      0, 1, 10, 20, 20, VISIT_OUTCOME.exit,
+    ]);
+    // Six stays on S1, five finished stays on S2, and the sixth unit placed
+    // on S2 at the very end of the shift, still open.
+    expect(v.unit.length).toBe(12);
+    const last = v.unit.length - 1;
+    expect([v.unit[last], v.station[last], v.enter[last], v.outcome[last]]).toEqual([
+      5, 1, 60, VISIT_OUTCOME.open,
+    ]);
+    expect(r.trace!.waits.unit.length).toBe(0);
+  });
+
+  it("agrees with the simulator's own totals in every hall", () => {
+    for (const plant of [SEED_PLANT, FAB_PLANT, ASSEMBLY_PLANT]) {
+      const r = simulateShift(plant);
+      const { visits, waits } = r.trace!;
+      expect(new Set(visits.unit).size).toBe(r.unitsStarted);
+      expect(count(visits.outcome, VISIT_OUTCOME.exit)).toBe(r.unitsGood);
+      expect(count(visits.outcome, VISIT_OUTCOME.scrap)).toBe(r.unitsScrap);
+      expect(count(visits.outcome, VISIT_OUTCOME.absorbed)).toBe(r.unitsMerged);
+      expect(count(visits.outcome, VISIT_OUTCOME.open) + count(waits.to, -1)).toBe(r.wipEnd);
+    }
+  });
+
+  it("never puts two units on one machine, and never moves a unit back in time", () => {
+    for (const plant of [SEED_PLANT, FAB_PLANT, ASSEMBLY_PLANT]) {
+      const { visits } = simulateShift(plant).trace!;
+      const byMachine = new Map<string, number>();
+      const byUnit = new Map<number, number>();
+      for (let k = 0; k < visits.unit.length; k++) {
+        expect(visits.enter[k]).toBeGreaterThanOrEqual(0);
+        if (visits.leave[k] >= 0) expect(visits.leave[k]).toBeGreaterThan(visits.enter[k]);
+        if (visits.done[k] >= 0 && visits.leave[k] >= 0) {
+          expect(visits.leave[k]).toBeGreaterThanOrEqual(visits.done[k]);
+        }
+        // Rows are written in time order per line, so the previous row for
+        // the same machine must have ended before this one starts.
+        const key = `${visits.line[k]}:${visits.station[k]}:${visits.machine[k]}`;
+        const previousOnMachine = byMachine.get(key);
+        if (previousOnMachine !== undefined) {
+          expect(visits.leave[previousOnMachine]).toBeGreaterThanOrEqual(0);
+          expect(visits.enter[k]).toBeGreaterThanOrEqual(visits.leave[previousOnMachine]);
+        }
+        byMachine.set(key, k);
+        const previousForUnit = byUnit.get(visits.unit[k]);
+        if (previousForUnit !== undefined) {
+          expect(visits.enter[k]).toBeGreaterThanOrEqual(visits.leave[previousForUnit]);
+        }
+        byUnit.set(visits.unit[k], k);
+      }
+    }
+  });
+
+  it("never holds more units in a buffer than its capacity", () => {
+    const r = simulateShift(FAB_PLANT);
+    const { waits } = r.trace!;
+    expect(waits.unit.length).toBeGreaterThan(0);
+    const changes = new Map<string, [number, number][]>();
+    for (let k = 0; k < waits.unit.length; k++) {
+      const key = `${waits.line[k]}:${waits.afterStation[k]}`;
+      const list = changes.get(key) ?? [];
+      list.push([waits.from[k], 1]);
+      if (waits.to[k] >= 0) list.push([waits.to[k], -1]);
+      changes.set(key, list);
+    }
+    for (const list of changes.values()) {
+      list.sort((x, y) => x[0] - y[0] || x[1] - y[1]);
+      let level = 0;
+      for (const [, delta] of list) {
+        level += delta;
+        expect(level).toBeLessThanOrEqual(r.buffers.capacity);
+        expect(level).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  it("can be turned off, with the same results", () => {
+    const on = simulateShift(SEED_PLANT);
+    const off = simulateShift(SEED_PLANT, { trace: false });
+    expect(off.trace).toBeNull();
+    expect(off.unitsGood).toBe(on.unitsGood);
+    expect(off.unitsScrap).toBe(on.unitsScrap);
   });
 });
 

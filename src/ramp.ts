@@ -83,7 +83,7 @@ export function runRamp(
   const spec = RAMPS[variable];
   const points: RampPoint[] = spec.values.map((value) => {
     const plant = applyLevers(seedPlant, { ...levers, ...spec.toLevers(value) });
-    const sim = simulateShift(plant, { crew });
+    const sim = simulateShift(plant, { crew, trace: false });
     return {
       value,
       unitsGood: sim.unitsGood,
